@@ -1,0 +1,106 @@
+package com.mcneilio.shokuyoku;
+
+import com.mcneilio.shokuyoku.driver.EventDriver;
+import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.format.Firehose;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+
+
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Properties;
+
+public class Worker {
+    public Worker() {
+        verifyEnvironment();
+        System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
+        Properties props = new Properties();
+        props.setProperty("bootstrap.servers", System.getenv("KAFKA_SERVERS"));
+        props.setProperty("group.id", System.getenv("KAFKA_GROUP_ID"));
+        props.setProperty("auto.offset.reset", "earliest");
+        props.setProperty("enable.auto.commit", "false");
+        props.setProperty("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        props.setProperty("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        this.consumer = new KafkaConsumer<>(props);
+        this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+    }
+
+    protected void start() {
+        while (true) {
+            ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
+                    Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
+            for (ConsumerRecord<String,byte[]> record : records) {
+                if(this.iterationTime == 0 && !records.isEmpty()) {
+                    this.iterationTime = System.currentTimeMillis();
+                }
+                Firehose f = new Firehose(record.value());
+                if (!drivers.containsKey(f.getTopic()))
+                    drivers.put(f.getTopic(), new BasicEventDriver(f.getTopic()));
+                drivers.get(f.getTopic()).addMessage(f.getMessage());
+            }
+            if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
+                drivers.forEach((s, eventDriver) -> {
+                    System.out.println("Flushing Event Driver for: "+s);
+                    eventDriver.flush();
+                });
+                consumer.commitSync();
+                this.iterationTime = System.currentTimeMillis();
+            }
+        }
+    }
+
+    private void verifyEnvironment() {
+        boolean missingEnv = false;
+        if(System.getenv("KAFKA_SERVERS") == null) {
+            System.out.println("KAFKA_SERVERS environment variable should contain a comma-separated list of kafka servers. e.g. localhost:9092,localhost:9093");
+            missingEnv = true;
+        }
+        if(System.getenv("KAFKA_GROUP_ID") == null) {
+            System.out.println("KAFKA_GROUP_ID environment variable should contain the name of the Kafka group. e.g. shokuyoku");
+            missingEnv = true;
+        }
+        if(System.getenv("KAFKA_TOPIC") == null) {
+            System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
+            missingEnv = true;
+        }
+        if(System.getenv("KAFKA_POLL_DURATION_MS") == null) {
+            System.out.println("KAFKA_POLL_DURATION_MS environment variable should contain the duration for the Kafka Consumer `poll` method in milliseconds. e.g. 500");
+            missingEnv = true;
+        }
+        if(System.getenv("FLUSH_MINUTES") == null) {
+            System.out.println("FLUSH_MINUTES environment variable should contain the interval between flushes in minutes. e.g. 15");
+            missingEnv = true;
+        }
+        if(System.getenv("AWS_DEFAULT_REGION") == null) {
+            System.out.println("AWS_DEFAULT_REGION environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
+            missingEnv = true;
+        }
+        if(System.getenv("AWS_ACCESS_KEY_ID") == null) {
+            System.out.println("AWS_ACCESS_KEY_ID environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
+            missingEnv = true;
+        }
+        if(System.getenv("AWS_SECRET_ACCESS_KEY") == null) {
+            System.out.println("AWS_SECRET_ACCESS_KEY environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
+            missingEnv = true;
+        }
+        if(System.getenv("S3_BUCKET") == null) {
+            System.out.println("S3_BUCKET environment variable should contain the bucket to write events to. e.g. my-event-bucket");
+            missingEnv = true;
+        }
+        if(System.getenv("ORC_BATCH_SIZE") == null) {
+            System.out.println("ORC_BATCH_SIZE environment variable should contain the number of records per orc batch. e.g. 1024");
+            missingEnv = true;
+        }
+        if(missingEnv) {
+            System.out.println("Missing required environment variable(s); exiting.");
+            System.exit(1);
+        }
+    }
+
+    KafkaConsumer<String,byte[]> consumer;
+    HashMap<String, EventDriver> drivers = new HashMap<>();
+    long iterationTime = 0;
+}
