@@ -99,6 +99,7 @@ public class BasicEventDriver implements EventDriver {
                 writer = null;
                 //TODO: S3 info should come from hive location
                 s3.putObject(System.getenv("S3_BUCKET"),fileName, new File(fileName));
+                new File(fileName).delete();
                 this.fileName = null;
             }
             catch (IOException e) {
@@ -116,7 +117,6 @@ public class BasicEventDriver implements EventDriver {
             }
             this.writer.addRowBatch(batch);
             batch.reset();
-            setColumns();
         }
         catch (IOException e) {
             System.out.println("Error writing orc file");
