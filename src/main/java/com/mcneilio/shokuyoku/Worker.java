@@ -6,6 +6,7 @@ import com.mcneilio.shokuyoku.format.Firehose;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import software.amazon.ion.Timestamp;
 
 
 import java.time.Duration;
@@ -29,6 +30,7 @@ public class Worker {
     }
 
     protected void start() {
+        long currentOffset = 0;
         while (true) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
@@ -40,13 +42,18 @@ public class Worker {
                 if (!drivers.containsKey(f.getTopic()))
                     drivers.put(f.getTopic(), new BasicEventDriver(f.getTopic()));
                 drivers.get(f.getTopic()).addMessage(f.getMessage());
+                currentOffset = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
                 drivers.forEach((s, eventDriver) -> {
                     System.out.println("Flushing Event Driver for: "+s);
                     eventDriver.flush();
                 });
-                consumer.commitSync();
+                if(currentOffset != 0) {
+                    System.out.println("Committing offset: " + currentOffset + " at: " + Timestamp.nowZ());
+                    currentOffset = 0;
+                    consumer.commitSync();
+                }
                 this.iterationTime = System.currentTimeMillis();
             }
         }
@@ -76,14 +83,6 @@ public class Worker {
         }
         if(System.getenv("AWS_DEFAULT_REGION") == null) {
             System.out.println("AWS_DEFAULT_REGION environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
-            missingEnv = true;
-        }
-        if(System.getenv("AWS_ACCESS_KEY_ID") == null) {
-            System.out.println("AWS_ACCESS_KEY_ID environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
-            missingEnv = true;
-        }
-        if(System.getenv("AWS_SECRET_ACCESS_KEY") == null) {
-            System.out.println("AWS_SECRET_ACCESS_KEY environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html");
             missingEnv = true;
         }
         if(System.getenv("S3_BUCKET") == null) {

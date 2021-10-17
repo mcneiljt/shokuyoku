@@ -29,6 +29,7 @@ public class BasicEventDriver implements EventDriver {
         setTypeDescription();
         this.batch = this.schema.createRowBatch(Integer.parseInt(System.getenv("ORC_BATCH_SIZE")));
         setColumns();
+        nullColumns();
     }
 
     @Override
@@ -117,6 +118,7 @@ public class BasicEventDriver implements EventDriver {
             }
             this.writer.addRowBatch(batch);
             batch.reset();
+            nullColumns();
         }
         catch (IOException e) {
             System.out.println("Error writing orc file");
@@ -126,6 +128,18 @@ public class BasicEventDriver implements EventDriver {
             System.out.println("Error with AWS SDK");
             e.printStackTrace();
         }
+    }
+
+    private void nullColumns() {
+        columns.forEach( (key, value) -> {
+            value.noNulls = false;
+            if(value instanceof LongColumnVector)
+                ((LongColumnVector) value).fillWithNulls();
+            else if(value instanceof BytesColumnVector)
+                ((BytesColumnVector) value).fillWithNulls();
+            //array and timestamp columnVectors don't provide fillWithNulls
+            //array and timestamp columnVectors appear to work with null values
+        });
     }
 
     /*
