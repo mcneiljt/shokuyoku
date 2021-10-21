@@ -40,14 +40,17 @@ public class BasicEventDriver implements EventDriver {
                 if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
                     ((BytesColumnVector) columns.get(key)).setRef(batchPosition,msg.getString(key).getBytes(),
                             0,msg.getString(key).getBytes().length);
+                    columns.get(key).isNull[batchPosition] = false;
                 }
                 else if(columns.get(key) instanceof LongColumnVector) {
                     LongColumnVector columnVector = (LongColumnVector) columns.get(key);
                     if(msg.get(key) instanceof java.lang.Integer) {
                         columnVector.vector[batchPosition] = msg.getInt(key);
+                        columns.get(key).isNull[batchPosition] = false;
                     }
                     else if(msg.get(key) instanceof java.lang.Boolean) {
                         columnVector.vector[batchPosition] = msg.getBoolean(key) ? 1 : 0;
+                        columns.get(key).isNull[batchPosition] = false;
                     }
                     else {
                         //TODO: unexpected type
