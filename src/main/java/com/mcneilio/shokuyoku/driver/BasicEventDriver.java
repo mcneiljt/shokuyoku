@@ -4,7 +4,6 @@ import com.amazonaws.SdkClientException;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.vector.*;
@@ -24,8 +23,9 @@ import java.util.UUID;
 
 public class BasicEventDriver implements EventDriver {
 
-    public BasicEventDriver(String eventName) {
+    public BasicEventDriver(String eventName, String date) {
         this.eventName = eventName;
+        this.date = date;
         setTypeDescription();
         this.batch = this.schema.createRowBatch(Integer.parseInt(System.getenv("ORC_BATCH_SIZE")));
         setColumns();
@@ -33,8 +33,7 @@ public class BasicEventDriver implements EventDriver {
     }
 
     @Override
-    public void addMessage(String m) {
-        JSONObject msg = new JSONColumnFormat(new JSONObject(m)).getFlattened();
+    public void addMessage(JSONObject msg) {
         int batchPosition = batch.size++;
         msg.keys().forEachRemaining(key -> {
             if(columns.containsKey(key)) {
@@ -98,8 +97,11 @@ public class BasicEventDriver implements EventDriver {
             try {
                 writer.close();
                 writer = null;
-                //TODO: S3 info should come from hive location
-                s3.putObject(System.getenv("S3_BUCKET"),fileName, new File(fileName));
+                s3.putObject(System.getenv("S3_BUCKET"),
+                        System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") + "/"
+                                + eventName + "/" + date + "/" + fileName,
+                        new File(fileName));
+                //TODO: create hive partition
                 new File(fileName).delete();
                 this.fileName = null;
             }
@@ -167,7 +169,7 @@ public class BasicEventDriver implements EventDriver {
     VectorizedRowBatch batch;
     TypeDescription schema;
     HashMap<String, ColumnVector> columns;
-    String eventName, fileName;
+    String eventName, fileName, date;
     Configuration conf = new Configuration();
     Writer writer = null;
     final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))).build();

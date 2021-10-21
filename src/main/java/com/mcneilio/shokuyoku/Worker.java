@@ -3,9 +3,11 @@ package com.mcneilio.shokuyoku;
 import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
+import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.json.JSONObject;
 import software.amazon.ion.Timestamp;
 
 
@@ -39,9 +41,14 @@ public class Worker {
                     this.iterationTime = System.currentTimeMillis();
                 }
                 Firehose f = new Firehose(record.value());
-                if (!drivers.containsKey(f.getTopic()))
-                    drivers.put(f.getTopic(), new BasicEventDriver(f.getTopic()));
-                drivers.get(f.getTopic()).addMessage(f.getMessage());
+                String eventName = f.getTopic();
+                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getFlattened();
+                String date = msg.getString("timestamp").split("T")[0];
+                if (!drivers.containsKey(eventName+date)) {
+                    System.out.println("Creating driver for event: " + eventName + "with date: " + date);
+                    drivers.put(eventName+date, new BasicEventDriver(eventName, date));
+                }
+                drivers.get(eventName+date).addMessage(msg);
                 currentOffset = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
@@ -87,6 +94,14 @@ public class Worker {
         }
         if(System.getenv("S3_BUCKET") == null) {
             System.out.println("S3_BUCKET environment variable should contain the bucket to write events to. e.g. my-event-bucket");
+            missingEnv = true;
+        }
+        if(System.getenv("S3_PREFIX") == null) {
+            System.out.println("S3_PREFIX environment variable should contain the folder to prefix all events. e.g. data");
+            missingEnv = true;
+        }
+        if(System.getenv("HIVE_DATABASE") == null) {
+            System.out.println("HIVE_DATABASE environment variable should contain the name of the hive database for all events. e.g. events");
             missingEnv = true;
         }
         if(System.getenv("ORC_BATCH_SIZE") == null) {
