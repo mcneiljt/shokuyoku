@@ -60,14 +60,20 @@ public class Firehose {
     public Firehose(byte[] byteArray) {
         this.byteArray = byteArray;
 
+
         int topicLength = byteArray[1] & 0xff;
         int msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
                 ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
 
-        this.topic = new String(Arrays.copyOfRange(byteArray, 6, 6 +
+        String fullTopic = new String(Arrays.copyOfRange(byteArray, 6, 6 +
                 topicLength));
+
+        // convert to snake case
+        this.topic = fullTopic.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
+
+
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
-                topicLength , 7 + topicLength  + msgLength));
+                topicLength, 7+topicLength+msgLength));
     }
 
     public byte[] getByteArray() {

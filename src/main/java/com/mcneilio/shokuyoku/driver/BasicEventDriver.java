@@ -6,10 +6,16 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
+import org.apache.thrift.TException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -19,6 +25,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 public class BasicEventDriver implements EventDriver {
@@ -152,6 +159,53 @@ public class BasicEventDriver implements EventDriver {
      * TODO: This should pull from hive
      */
     private void setTypeDescription() {
+        HiveConf hiveConf = new HiveConf();
+        hiveConf.set("hive.metastore.local", "false");
+
+        hiveConf.setVar(HiveConf.ConfVars.METASTOREURIS, System.getenv("HIVE_URL"));
+        hiveConf.set(HiveConf.ConfVars.PREEXECHOOKS.varname, "");
+        hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
+        hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
+        try {
+            Warehouse warehouse = new Warehouse(hiveConf);
+        } catch (MetaException e) {
+            e.printStackTrace();
+        }
+        HiveMetaStoreClient hiveMetaStoreClient = null;
+        try {
+            hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
+        } catch (MetaException e) {
+            e.printStackTrace();
+        }
+        try {
+            String tableName = this.eventName.substring(this.eventName.lastIndexOf(".")+1);
+            List<FieldSchema> a = hiveMetaStoreClient.getSchema("events", tableName);
+            TypeDescription td=  TypeDescription.createStruct();
+            for(FieldSchema fieldSchma : a){
+                if(fieldSchma.getType().equals("string")) {
+                    td = td.addField(fieldSchma.getName(), TypeDescription.createString());
+                } else if(fieldSchma.getType().equals("boolean")) {
+                    td = td.addField(fieldSchma.getName(), TypeDescription.createBoolean());
+                }  else if(fieldSchma.getType().equals("timestamp")) {
+                    td = td.addField(fieldSchma.getName(), TypeDescription.createTimestamp());
+                } else if(fieldSchma.getType().equals("bigint")) {
+                    td = td.addField(fieldSchma.getName(), TypeDescription.createLong());
+                } else if(fieldSchma.getType().equals("date")) {
+                    td = td.addField(fieldSchma.getName(), TypeDescription.createDate());
+                } else if(fieldSchma.getType().equals("array<string>")) {
+                    // TODO figure out this mapping
+                } else {
+                    System.out.println("ASD123");
+                }
+            }
+            this.schema = td;
+            System.out.println("ASD");
+            return;
+        } catch (TException e) {
+            e.printStackTrace();
+        }
+
+
         this.schema = TypeDescription.fromString(System.getenv("ORC_SCHEMA"));
     }
 
