@@ -59,6 +59,7 @@ public class Worker {
                     System.out.println("Flushing Event Driver for: "+s);
                     eventDriver.flush();
                 });
+                drivers.clear();
                 if(currentOffset != 0) {
                     System.out.println("Committing offset: " + currentOffset + " at: " + Timestamp.nowZ());
                     currentOffset = 0;
