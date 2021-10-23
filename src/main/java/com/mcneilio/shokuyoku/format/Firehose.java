@@ -39,8 +39,7 @@ public class Firehose {
         byte[] messageBytes = message.getBytes();
         byte[] prefix = ByteBuffer.allocate(1).put((byte)0x1).array();
         byte[] topicLen = ByteBuffer.allocate(1).put((byte)topicBytes.length).array();
-        // warning this is signed and the spec expects unsigned but it isn't often used
-        byte[] messageLen = ByteBuffer.allocate(4).putInt(messageBytes.length).array();;
+        byte[] messageLen = ByteBuffer.allocate(4).putInt(messageBytes.length).array();
         byte[] separator = ByteBuffer.allocate(1).put((byte)0x2).array();
 
         ByteBuffer buffer = ByteBuffer.allocate(
@@ -62,8 +61,14 @@ public class Firehose {
 
 
         int topicLength = byteArray[1] & 0xff;
-        int msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
-                ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
+        int msgLength;
+
+        if(System.getenv("ENDIAN").equals("little"))
+            msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
+                    ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
+        else
+            msgLength = ((0xFF & byteArray[2]) << 24) | ((0xFF & byteArray[3]) << 16) |
+                    ((0xFF & byteArray[4]) << 8) | (0xFF & byteArray[5]);
 
         String fullTopic = new String(Arrays.copyOfRange(byteArray, 6, 6 +
                 topicLength));
