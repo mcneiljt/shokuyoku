@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
@@ -92,6 +93,7 @@ public class BasicEventDriver implements EventDriver {
                 //TODO: complain about new key
             }
         });
+        ((LongColumnVector) columns.get("date")).vector[batchPosition] = LocalDate.parse(date).toEpochDay();
         if (batch.size == batch.getMaxSize()) {
             write();
         }
