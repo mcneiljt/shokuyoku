@@ -101,6 +101,7 @@ public class BasicEventDriver implements EventDriver {
 
     @Override
     public void flush() {
+        long t = Instant.now().toEpochMilli();
         if (batch.size != 0) {
             write();
         }
@@ -121,9 +122,11 @@ public class BasicEventDriver implements EventDriver {
                 System.out.println("Error closing orc file: " + e);
             }
         }
+        System.out.println("Flush time (ms): " + (Instant.now().toEpochMilli() - t));
     }
 
     private void write() {
+        long t = Instant.now().toEpochMilli();
         try {
             if(this.writer == null) {
                 this.fileName = this.eventName + "_" + Instant.now().toEpochMilli() + "_" + UUID.randomUUID() + ".orc";
@@ -142,6 +145,7 @@ public class BasicEventDriver implements EventDriver {
             System.out.println("Error with AWS SDK");
             e.printStackTrace();
         }
+        System.out.println("Write time (ms): " + (Instant.now().toEpochMilli() - t));
     }
 
     private void nullColumns() {
