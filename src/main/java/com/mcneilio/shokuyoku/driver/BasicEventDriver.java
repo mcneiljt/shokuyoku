@@ -113,7 +113,7 @@ public class BasicEventDriver implements EventDriver {
                 writer = null;
                 s3.putObject(System.getenv("S3_BUCKET"),
                         System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") + "/"
-                                + eventName + "/" + date + "/" + fileName,
+                                + eventName + "/date=" + date + "/" + fileName,
                         new File(fileName));
                 //TODO: create hive partition
                 new File(fileName).delete();
