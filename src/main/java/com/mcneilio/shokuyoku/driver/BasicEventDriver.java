@@ -94,6 +94,7 @@ public class BasicEventDriver implements EventDriver {
             }
         });
         ((LongColumnVector) columns.get("date")).vector[batchPosition] = LocalDate.parse(date).toEpochDay();
+        columns.get("date").isNull[batchPosition] = false;
         if (batch.size == batch.getMaxSize()) {
             write();
         }
