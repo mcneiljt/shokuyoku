@@ -5,6 +5,8 @@ import com.mcneilio.shokuyoku.driver.BasicEventDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
+import com.mcneilio.shokuyoku.util.Statsd;
+import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -32,6 +34,7 @@ public class Worker {
 
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+        statsd = Statsd.getInstance();
     }
 
     protected void start() {
@@ -67,6 +70,7 @@ public class Worker {
                 }
                 this.iterationTime = System.currentTimeMillis();
             }
+            statsd.histogram("kafka.poll.size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
         }
     }
 
@@ -121,4 +125,5 @@ public class Worker {
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
+    StatsDClient statsd;
 }

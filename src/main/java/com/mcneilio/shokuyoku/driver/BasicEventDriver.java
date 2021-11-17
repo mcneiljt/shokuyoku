@@ -4,6 +4,8 @@ import com.amazonaws.SdkClientException;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.mcneilio.shokuyoku.util.Statsd;
+import com.timgroup.statsd.StatsDClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -38,10 +40,12 @@ public class BasicEventDriver implements EventDriver {
         this.batch = this.schema.createRowBatch(Integer.parseInt(System.getenv("ORC_BATCH_SIZE")));
         setColumns();
         nullColumns();
+        this.statsd = Statsd.getInstance();
     }
 
     @Override
     public void addMessage(JSONObject msg) {
+        long t = Instant.now().toEpochMilli();
         int batchPosition = batch.size++;
         msg.keys().forEachRemaining(key -> {
             if(columns.containsKey(key)) {
@@ -95,9 +99,12 @@ public class BasicEventDriver implements EventDriver {
         });
         ((LongColumnVector) columns.get("date")).vector[batchPosition] = LocalDate.parse(date).toEpochDay();
         columns.get("date").isNull[batchPosition] = false;
+        statsd.count("message.count", 1, new String[]{"env:"+System.getenv("STATSD_ENV")});
         if (batch.size == batch.getMaxSize()) {
             write();
         }
+        statsd.histogram("eventDriver.addMessage.ms", Instant.now().toEpochMilli() - t,
+            new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
 
     @Override
@@ -123,7 +130,8 @@ public class BasicEventDriver implements EventDriver {
                 System.out.println("Error closing orc file: " + e);
             }
         }
-        System.out.println("Flush time (ms): " + (Instant.now().toEpochMilli() - t));
+        statsd.histogram("eventDriver.flush.ms", Instant.now().toEpochMilli() - t,
+            new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
 
     private void write() {
@@ -146,7 +154,8 @@ public class BasicEventDriver implements EventDriver {
             System.out.println("Error with AWS SDK");
             e.printStackTrace();
         }
-        System.out.println("Write time (ms): " + (Instant.now().toEpochMilli() - t));
+        statsd.histogram("eventDriver.write.ms", Instant.now().toEpochMilli() - t,
+            new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
 
     private void nullColumns() {
@@ -202,11 +211,10 @@ public class BasicEventDriver implements EventDriver {
                 } else if(fieldSchma.getType().equals("array<string>")) {
                     // TODO figure out this mapping
                 } else {
-                    System.out.println("ASD123");
+                    System.out.println("Failed to resolve schema field type.");
                 }
             }
             this.schema = td;
-            System.out.println("ASD");
             return;
         } catch (TException e) {
             e.printStackTrace();
@@ -236,5 +244,6 @@ public class BasicEventDriver implements EventDriver {
     String eventName, fileName, date;
     Configuration conf = new Configuration();
     Writer writer = null;
+    StatsDClient statsd;
     final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))).build();
 }
