@@ -209,13 +209,9 @@ public class BasicEventDriver implements EventDriver {
                 }
             }
             this.schema = td;
-            return;
         } catch (TException e) {
             e.printStackTrace();
         }
-
-
-        this.schema = TypeDescription.fromString(System.getenv("ORC_SCHEMA"));
     }
 
     /**
