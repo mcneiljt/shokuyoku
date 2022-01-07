@@ -10,7 +10,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
-import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.ql.exec.vector.*;
@@ -182,11 +181,6 @@ public class BasicEventDriver implements EventDriver {
         hiveConf.set(HiveConf.ConfVars.PREEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
-        try {
-            Warehouse warehouse = new Warehouse(hiveConf);
-        } catch (MetaException e) {
-            e.printStackTrace();
-        }
         HiveMetaStoreClient hiveMetaStoreClient = null;
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
