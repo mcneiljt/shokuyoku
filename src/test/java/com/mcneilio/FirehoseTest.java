@@ -10,14 +10,14 @@ import org.junit.contrib.java.lang.system.EnvironmentVariables;
 
 public class FirehoseTest {
 
-    JSONObject testMessage = new JSONObject();
-
     @Rule
     public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
     @Test
     public void firehoseCanSerializeAndDeserializeLittleEndian() {
         String testTopic = "testTopic";
+        JSONObject testMessage = new JSONObject();
+
         testMessage.put("name", "testMessage");
         environmentVariables.set("ENDIAN", "little");
         Firehose firehoseMessage = new Firehose(testTopic, testMessage.toString());
