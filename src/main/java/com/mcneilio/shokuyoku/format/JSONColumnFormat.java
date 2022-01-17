@@ -25,7 +25,11 @@ public class JSONColumnFormat {
                 flatten( (JSONArray) original.get(key), key);
             }
             else {
-                flattened.put(key.replace(' ','_').toLowerCase(), original.get(key));
+                String snakeCaseKey = key.replace(' ','_')
+                    .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
+                    .replaceAll("([a-z])([A-Z])", "$1_$2")
+                    .toLowerCase();
+                flattened.put(snakeCaseKey, original.get(key));
             }
         });
     }

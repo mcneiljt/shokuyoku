@@ -1,0 +1,63 @@
+{
+    "integrations": {
+        "Google Analytics": true
+    },
+    "context": {
+        "automation": false,
+        "browser": {
+            "name": "Chrome",
+            "version": "96.0.4664.110",
+            "major": "96"
+        },
+        "device": {},
+        "locale": "en-US",
+        "os": {
+            "name": "Linux",
+            "version": "x86_64"
+        },
+        "screen": {
+            "width": 2048,
+            "height": 1088,
+            "density": 1.25
+        },
+        "page": {
+            "path": "/",
+            "referrer": "",
+            "search": "",
+            "title": "Best Coupons, Loyalty, and Deals",
+            "url": "https://example.com"
+        },
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "library": {
+            "name": "analytics.js",
+            "version": "2.11.0"
+        }
+    },
+    "properties": {
+        "domain": "example.com",
+        "pagePath": "/",
+        "view": "home",
+        "features": [
+            "ab_control_search_landing"
+        ],
+        "roles": [
+            "user"
+        ],
+        "profileId": "abc05faf-a830-428a-8dbc-821cf677ddd2",
+        "hasOrdered": false
+    },
+    "event": "focusWindow",
+    "anonymousId": "59c7897e-10e8-45cf-b8f0-4375c4bdcc44",
+    "timestamp": "2022-01-13T20:25:38.658Z",
+    "type": "track",
+    "writeKey": "hoJ2AjJaErOjhma79jutVyqhc4P25Rxc",
+    "userId": "abc0cc2a-2d62-5fc3-9496-92d7e4559ec8",
+    "sentAt": "2022-01-13T20:25:38.663Z",
+    "_metadata": {
+        "bundled": [
+            "AdRoll"
+        ],
+        "unbundled": []
+    },
+    "messageId": "abc-1d27933936b5010cdd312126def8eb58"
+}
