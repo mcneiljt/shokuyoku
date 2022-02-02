@@ -3,16 +3,20 @@ package com.mcneilio.shokuyoku.format;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.function.Function;
-
 public class JSONColumnFormat {
     JSONObject original, flattened;
+
+    interface JSONColumnFormatFilter{
+        boolean filter(String str, Object o);
+    }
 
     public JSONColumnFormat(JSONObject original) {
         this.original = original;
         this.flattened = new JSONObject();
         flatten(null);
     }
+
+
 
     public JSONObject getFlattened() {
         return flattened;
@@ -26,28 +30,37 @@ public class JSONColumnFormat {
     }
 
 
-    private void flatten(Function<String, String> filter) {
-        flatten(original, "", filter);
+    private void flatten(JSONColumnFormatFilter filter) {
+        flatten(original, "", filter!=null ? filter : new JSONColumnFormatFilter() {
+            @Override
+            public boolean filter(String str, Object o) {
+                return false;
+            }
+        }
+        );
     }
 
-    private void flatten(JSONObject obj, String prefix, Function<String, String> filter) {
+    private void flatten(JSONObject obj, String prefix, JSONColumnFormatFilter filter) {
         obj.keys().forEachRemaining(key -> {
             String normalizedKey = normalizeKey(key);
             if (obj.get(key) instanceof JSONObject) {
                 // Keeping the _ at the end of prefix makes it so we can have an empty prefix
                 // for the base case and also makes it so we don't have to do the extra append for the child keys.
-                flatten((JSONObject) obj.get(key), prefix+normalizedKey+"_",filter);
+                flatten((JSONObject) obj.get(key), prefix + normalizedKey + "_",filter);
             }
             else if (obj.get(key) instanceof JSONArray) {
-                flatten( (JSONArray) obj.get(key), prefix+normalizedKey, filter);
+                flatten( (JSONArray) obj.get(key), prefix + normalizedKey, filter);
             }
             else {
-                flattened.put(prefix+normalizedKey, obj.get(key));
+                String normalizedFullKey = prefix + normalizedKey;
+                if(!filter.filter(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
+                    flattened.put(normalizedFullKey, obj.get(key));
+                }
             }
         });
     }
 
-    private void flatten(JSONArray array, String prefix, Function<String, String> filter) {
+    private void flatten(JSONArray array, String prefix, JSONColumnFormatFilter filter) {
         boolean complexType = false;
         for (Object v : array.toList()) {
             if (v instanceof JSONObject || v instanceof JSONArray) {
@@ -58,6 +71,7 @@ public class JSONColumnFormat {
         if (complexType) {
             JSONArray flattenedArray = new JSONArray();
             for (Object v : array.toList()) {
+                // TODO: Should we flatten these objects?
                 flattenedArray.put(v.toString());
             }
             flattened.put(prefix, flattenedArray);
