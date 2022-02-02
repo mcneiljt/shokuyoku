@@ -3,52 +3,51 @@ package com.mcneilio.shokuyoku.format;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.function.Function;
+
 public class JSONColumnFormat {
     JSONObject original, flattened;
 
     public JSONColumnFormat(JSONObject original) {
         this.original = original;
         this.flattened = new JSONObject();
-        flatten();
+        flatten(null);
     }
 
     public JSONObject getFlattened() {
         return flattened;
     }
 
-    private void flatten() {
-        original.keys().forEachRemaining(key -> {
-            if (original.get(key) instanceof JSONObject) {
-                flatten((JSONObject) original.get(key), key);
-            }
-            else if (original.get(key) instanceof JSONArray) {
-                flatten( (JSONArray) original.get(key), key);
-            }
-            else {
-                String snakeCaseKey = key.replace(' ','_')
-                    .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
-                    .replaceAll("([a-z])([A-Z])", "$1_$2")
-                    .toLowerCase();
-                flattened.put(snakeCaseKey, original.get(key));
-            }
-        });
+    private String normalizeKey(String key) {
+       return key.replace(' ','_')
+            .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
+            .replaceAll("([a-z])([A-Z])", "$1_$2")
+            .toLowerCase();
     }
 
-    private void flatten(JSONObject obj, String prefix) {
+
+    private void flatten(Function<String, String> filter) {
+        flatten(original, "", filter);
+    }
+
+    private void flatten(JSONObject obj, String prefix, Function<String, String> filter) {
         obj.keys().forEachRemaining(key -> {
+            String normalizedKey = normalizeKey(key);
             if (obj.get(key) instanceof JSONObject) {
-                flatten((JSONObject) obj.get(key), prefix+"_"+key);
+                // Keeping the _ at the end of prefix makes it so we can have an empty prefix
+                // for the base case and also makes it so we don't have to do the extra append for the child keys.
+                flatten((JSONObject) obj.get(key), prefix+normalizedKey+"_",filter);
             }
             else if (obj.get(key) instanceof JSONArray) {
-                flatten( (JSONArray) obj.get(key), prefix+"_"+key);
+                flatten( (JSONArray) obj.get(key), prefix+normalizedKey, filter);
             }
             else {
-                flattened.put(prefix+"_"+key.replace(' ','_').toLowerCase(), obj.get(key));
+                flattened.put(prefix+normalizedKey, obj.get(key));
             }
         });
     }
 
-    private void flatten(JSONArray array, String prefix) {
+    private void flatten(JSONArray array, String prefix, Function<String, String> filter) {
         boolean complexType = false;
         for (Object v : array.toList()) {
             if (v instanceof JSONObject || v instanceof JSONArray) {

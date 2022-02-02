@@ -39,6 +39,13 @@ public class JSONColumnFormatTest {
         assertThat(eventMsg.has("message_id")).isTrue();
     }
 
+    @Test
+    public void flattenConvertCamelCaseToSnakeCaseNested() throws Exception {
+        JSONObject eventMsg = getTestJSON();
+
+        assertThat(eventMsg.has("context_user_agent")).isTrue();
+    }
+
     private JSONObject getTestJSON() throws Exception {
         String path = "src/test/resources";
         File file = new File(path);
