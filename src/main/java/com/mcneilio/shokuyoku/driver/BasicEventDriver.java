@@ -81,8 +81,12 @@ public class BasicEventDriver implements EventDriver {
                 }
                 else if(columns.get(key) instanceof TimestampColumnVector) {
                     try {
-                        ((TimestampColumnVector) columns.get(key)).time[batchPosition] =
-                                TimestampColumnVector.getTimestampAsLong(Timestamp.from(Instant.parse(msg.getString(key))));
+                        String timeValue = msg.getString(key);
+                        long timeInMilliseconds = Instant.parse(timeValue).toEpochMilli();
+                        Timestamp timestamp = new Timestamp(timeInMilliseconds);
+
+                        TimestampColumnVector timestampColumnVector = (TimestampColumnVector) columns.get(key);
+                        timestampColumnVector.time[batchPosition] = timestamp.getTime();
                     }
                     catch (DateTimeParseException e) {
                         System.out.println("Failed to parse timestamp for: "+key);
