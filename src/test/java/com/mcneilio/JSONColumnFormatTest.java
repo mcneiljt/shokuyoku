@@ -27,7 +27,6 @@ public class JSONColumnFormatTest {
 
         assertThat(eventMsg.has("context_automation")).isTrue();
         assertThat(eventMsg.has("integrations_google_analytics")).isTrue();
-        assertThat(eventMsg.has("properties_domain")).isTrue();
         assertThat(eventMsg.has("_metadata_bundled")).isTrue();
     }
 
@@ -37,6 +36,14 @@ public class JSONColumnFormatTest {
 
         assertThat(eventMsg.has("messageid")).isFalse();
         assertThat(eventMsg.has("message_id")).isTrue();
+    }
+
+    @Test
+    public void flattenRemovesPropertiesPrefix() throws Exception {
+        JSONObject eventMsg = getTestJSON();
+
+        assertThat(eventMsg.has("properties_domain")).isFalse();
+        assertThat(eventMsg.has("domain")).isTrue();
     }
 
     private JSONObject getTestJSON() throws Exception {

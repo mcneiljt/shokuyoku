@@ -36,14 +36,16 @@ public class JSONColumnFormat {
 
     private void flatten(JSONObject obj, String prefix) {
         obj.keys().forEachRemaining(key -> {
+            String strippedKey = prefix.equals("properties") ? key : prefix + "_" + key;
+
             if (obj.get(key) instanceof JSONObject) {
-                flatten((JSONObject) obj.get(key), prefix+"_"+key);
+                flatten((JSONObject) obj.get(key), strippedKey);
             }
             else if (obj.get(key) instanceof JSONArray) {
-                flatten( (JSONArray) obj.get(key), prefix+"_"+key);
+                flatten( (JSONArray) obj.get(key), strippedKey);
             }
             else {
-                flattened.put(prefix+"_"+key.replace(' ','_').toLowerCase(), obj.get(key));
+                flattened.put(strippedKey.replace(' ','_').toLowerCase(), obj.get(key));
             }
         });
     }
