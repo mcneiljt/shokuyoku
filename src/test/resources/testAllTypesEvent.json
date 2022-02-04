@@ -1,0 +1,21 @@
+{
+    "event": "test_table_two",
+    "test_int": 1,
+    "test_bigint": 2,
+    "test_tinyint": 3,
+    "test_smallint": 4,
+
+    "test_float": 1.23,
+    "test_double": 4.56,
+    "test_decimal": 7.89,
+
+    "test_string": "ABC123",
+    "test_varchar": "123ABC",
+
+    "test_string_array": ["ASD", "123"],
+
+    "test_double_array": [1.23,4.56],
+    "test_bigint_array": [123,123],
+    "test_timestamp": "2022-02-03T00:14:52.495Z",
+    "test_boolean": true
+}

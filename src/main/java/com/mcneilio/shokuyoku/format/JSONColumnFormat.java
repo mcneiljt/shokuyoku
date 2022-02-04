@@ -1,42 +1,49 @@
 package com.mcneilio.shokuyoku.format;
 
+import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.lang.reflect.Array;
+import java.util.*;
 
 public class JSONColumnFormat {
     JSONObject original, flattened;
 
-    interface JSONColumnFormatFilter{
+    interface JSONColumnFormatFilter {
         boolean filter(String str, Object o);
     }
 
     public JSONColumnFormat(JSONObject original) {
         this.original = original;
-        this.flattened = new JSONObject();
-        flatten(null);
     }
 
-
-
     public JSONObject getFlattened() {
+        // compute just in time if it hasn't already been generated
+        if (flattened == null) {
+            this.flattened = new JSONObject();
+            flatten(null);
+        }
         return flattened;
     }
 
     private String normalizeKey(String key) {
-       return key.replace(' ','_')
+        return key.replace(' ', '_')
             .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
             .replaceAll("([a-z])([A-Z])", "$1_$2")
             .toLowerCase();
     }
 
-
     private void flatten(JSONColumnFormatFilter filter) {
-        flatten(original, "", filter!=null ? filter : new JSONColumnFormatFilter() {
-            @Override
-            public boolean filter(String str, Object o) {
-                return false;
+        flatten(original, "", filter != null ? filter : new JSONColumnFormatFilter() {
+                @Override
+                public boolean filter(String str, Object o) {
+                    return false;
+                }
             }
-        }
         );
     }
 
@@ -46,14 +53,12 @@ public class JSONColumnFormat {
             if (obj.get(key) instanceof JSONObject) {
                 // Keeping the _ at the end of prefix makes it so we can have an empty prefix
                 // for the base case and also makes it so we don't have to do the extra append for the child keys.
-                flatten((JSONObject) obj.get(key), prefix + normalizedKey + "_",filter);
-            }
-            else if (obj.get(key) instanceof JSONArray) {
-                flatten( (JSONArray) obj.get(key), prefix + normalizedKey, filter);
-            }
-            else {
+                flatten((JSONObject) obj.get(key), prefix + normalizedKey + "_", filter);
+            } else if (obj.get(key) instanceof JSONArray) {
+                flatten((JSONArray) obj.get(key), prefix + normalizedKey, filter);
+            } else {
                 String normalizedFullKey = prefix + normalizedKey;
-                if(!filter.filter(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
+                if (!filter.filter(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
                     flattened.put(normalizedFullKey, obj.get(key));
                 }
             }
@@ -75,9 +80,12 @@ public class JSONColumnFormat {
                 flattenedArray.put(v.toString());
             }
             flattened.put(prefix, flattenedArray);
-        }
-        else {
+        } else {
             flattened.put(prefix, array);
         }
+    }
+
+    public static void main(String[] args) {
+        JSONColumnFormat obj = new JSONColumnFormat(new JSONObject("{}"));
     }
 }
