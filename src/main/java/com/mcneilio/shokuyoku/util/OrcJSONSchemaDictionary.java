@@ -20,15 +20,19 @@ public class OrcJSONSchemaDictionary {
         hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
         HiveMetaStoreClient hiveMetaStoreClient = null;
+
         try {
             hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
         } catch (MetaException e) {
             e.printStackTrace();
         }
         try {
-            List<String> tableNames = hiveMetaStoreClient.getAllTables("default");
+            String schema = "events";
+            List<String> tableNames = hiveMetaStoreClient.getAllTables(schema);
             for(String tableName : tableNames) {
-                List<FieldSchema> a = hiveMetaStoreClient.getSchema("default", "test_table_two");
+                System.out.println("Fetching Orc Table: "+tableName);
+
+                List<FieldSchema> a = hiveMetaStoreClient.getSchema(schema, tableName);
 
                 Set<String> prefixes = new HashSet<>();
                 Map<String, Class> columns = new HashMap<>();
@@ -48,10 +52,11 @@ public class OrcJSONSchemaDictionary {
                     // int types
                     columns.put(fieldSchema.getName(), getOrcJsonType(fieldSchema.getType()));
                 }
-                System.out.println("AS");
+                eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns));
+                break;
             }
         } catch (Exception e) {
-            System.out.println("AS");
+            System.err.println("Error fetching types: "+ e.getMessage());
         }
     }
 
@@ -79,7 +84,7 @@ public class OrcJSONSchemaDictionary {
         }
 
         // string types
-        else if (orcType.equals("string") || orcType.equals("timestamp")) {
+        else if (orcType.equals("string") || orcType.equals("timestamp") || orcType.equals("date")) {
             return String.class;
         } else if (orcType.startsWith("varchar(")) {
             return String.class;

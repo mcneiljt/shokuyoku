@@ -42,6 +42,8 @@ public class Firehose {
         byte[] messageLen = ByteBuffer.allocate(4).putInt(messageBytes.length).array();
         byte[] separator = ByteBuffer.allocate(1).put((byte)0x2).array();
 
+
+        // Seems like this needs to also take endian into account
         ByteBuffer buffer = ByteBuffer.allocate(
                 prefix.length + topicLen.length + messageLen.length +
                         separator.length + topicBytes.length + messageBytes.length
@@ -63,7 +65,7 @@ public class Firehose {
         int topicLength = byteArray[1] & 0xff;
         int msgLength;
 
-        if(System.getenv("ENDIAN").equals("little"))
+        if (System.getenv("ENDIAN").equals("little")) // this should have a default
             msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
                     ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
         else
@@ -75,7 +77,6 @@ public class Firehose {
 
         // convert to snake case
         this.topic = fullTopic.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
-
 
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
                 topicLength, 7+topicLength+msgLength));
