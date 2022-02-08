@@ -8,7 +8,7 @@ import org.apache.hadoop.hive.metastore.api.MetaException;
 import java.lang.reflect.Array;
 import java.util.*;
 
-public class OrcJSONSchemaDictionary {
+public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
    public  OrcJSONSchemaDictionary(){
 
@@ -65,11 +65,11 @@ public class OrcJSONSchemaDictionary {
             String tmp = orcType.substring(6, orcType.length() - 1);
             return Array.newInstance(getOrcJsonType(tmp), 0).getClass();
         } else if (orcType.equals("tinyint")) {
-            return Integer.class;
+            return Double.class;
         } else if (orcType.equals("smallint")) {
-            return Integer.class;
+            return Double.class;
         } else if (orcType.equals("int")) {
-            return Integer.class;
+            return Double.class;
         } else if (orcType.equals("bigint")) {
             return Double.class;
         }

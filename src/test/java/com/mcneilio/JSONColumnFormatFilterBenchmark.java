@@ -29,7 +29,6 @@ public class JSONColumnFormatFilterBenchmark {
         JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns);
         jsonSchemaDictionary.addEventType("focus_window", eventTypeJSONSchema);
 
-
         String eventText = getTestJSONStr();
 
         long startTime = System.currentTimeMillis();

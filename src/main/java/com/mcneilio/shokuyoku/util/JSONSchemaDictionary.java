@@ -2,27 +2,43 @@ package com.mcneilio.shokuyoku.util;
 
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Consumer;
 
 public class JSONSchemaDictionary {
     public static class EventTypeJSONSchema {
         public Set<String> prefixes;
-        public Map<String, Class> columns;
+        public Map<String, Set<Class>> columns;
 
         public EventTypeJSONSchema(Set<String> prefixes, Map<String, Class> columns){
             this.prefixes = prefixes;
-            this.columns = columns;
+
+            Map<String, Set<Class>> flattenedMap = new HashMap<>();
+            columns.keySet().forEach(new Consumer<String>() {
+                @Override
+                public void accept(String columnName) {
+                    Class type = columns.get(columnName);
+                    if (type.equals(Double.class)){
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer.class, Double.class})));
+
+                    } else if(type.equals(Boolean.class)){
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Boolean.class})));
+
+                    } else if(type.equals(String.class)){
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class, Double.class, Boolean.class})));
+                    }
+                }
+            });
+
+            this.columns = flattenedMap;
         }
 
         public boolean hasColumn(String str, Object o) {
-            Class c = columns.get(str);
-            if(c==null)
+            Set<Class> possibleClasses = columns.get(str);
+            if (possibleClasses == null)
                 return false;
 
-            // TODO check inheritance.
-            return c.equals(o.getClass());
+            return possibleClasses.contains(o.getClass());
         }
 
         public boolean hasPrefix(String prefix) {
