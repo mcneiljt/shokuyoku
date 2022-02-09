@@ -1,10 +1,6 @@
 package com.mcneilio.shokuyoku.driver;
 
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.TypeDescription;
 import org.json.JSONObject;
-
-import java.util.ArrayList;
 
 public interface EventDriver {
 
@@ -15,6 +11,7 @@ public interface EventDriver {
 
     /**
      * This should write all messages to the event store and reset all buffers
+     * @return
      */
-    void flush();
+    String flush(boolean deleteFile);
 }

@@ -12,7 +12,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.json.JSONObject;
-import software.amazon.ion.Timestamp;
+//import software.amazon.ion.Timestamp;
 
 
 import java.time.Duration;
@@ -60,11 +60,11 @@ public class Worker {
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
                 drivers.forEach((s, eventDriver) -> {
                     System.out.println("Flushing Event Driver for: "+s);
-                    eventDriver.flush();
+                    eventDriver.flush(true);
                 });
                 drivers.clear();
                 if(currentOffset != 0) {
-                    System.out.println("Committing offset: " + currentOffset + " at: " + Timestamp.nowZ());
+                    System.out.println("Committing offset: " + currentOffset + " at: " /*+ Timestamp.nowZ()*/);
                     currentOffset = 0;
                     consumer.commitSync();
                 }

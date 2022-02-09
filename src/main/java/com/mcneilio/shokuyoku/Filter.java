@@ -54,7 +54,7 @@ public class Filter {
 
     public static void main(String[] args){
         verifyEnvironment();
-        System.out.println("Shokuyoku filter will start processing requests from topic: " + System.getenv("KAFKA_INPUT_TOPIC") " and output to: " + System.getenv("KAFKA_OUTPUT_TOPIC"));
+        System.out.println("Shokuyoku filter will start processing requests from topic: " + System.getenv("KAFKA_INPUT_TOPIC")+ " and output to: " + System.getenv("KAFKA_OUTPUT_TOPIC"));
         Properties consumerProps = new Properties();
         consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
         consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
@@ -94,9 +94,7 @@ public class Filter {
 
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
                 if(eventTypeJSONSchema==null){
-                    saveEventError(record);
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
-
                     continue;
                 }
 
