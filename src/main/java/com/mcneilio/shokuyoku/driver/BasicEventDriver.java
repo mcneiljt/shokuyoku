@@ -23,6 +23,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
 
@@ -35,7 +36,7 @@ public class BasicEventDriver implements EventDriver {
         setTypeDescription();
         this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") !=null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
         setColumns();
-     //   nullColumns();
+        nullColumnsV2();
         this.statsd = Statsd.getInstance();
 
     }
@@ -44,15 +45,13 @@ public class BasicEventDriver implements EventDriver {
     public void addMessage(JSONObject msg) {
         long t = Instant.now().toEpochMilli();
         int batchPosition = batch.size++;
-//        columns.get("id").isNull[batchPosition] = true;
-//        columns.get("id").noNulls = false;
 
         msg.keys().forEachRemaining(key -> {
             if(columns.containsKey(key)) {
                 if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
                     ((BytesColumnVector) columns.get(key)).setRef(batchPosition,msg.getString(key).getBytes(),
                             0,msg.getString(key).getBytes().length);
-               //     columns.get(key).isNull[batchPosition] = false;
+                    columns.get(key).isNull[batchPosition] = false;
                 }
                 else if(columns.get(key) instanceof LongColumnVector) {
                     LongColumnVector columnVector = (LongColumnVector) columns.get(key);
@@ -182,6 +181,24 @@ public class BasicEventDriver implements EventDriver {
             //array and timestamp columnVectors appear to work with null values
         });
     }
+
+    private void nullColumnsV2() {
+        columns.forEach( (key, value) -> {
+            value.noNulls = false;
+
+            if(value instanceof LongColumnVector) {
+                Arrays.fill(((LongColumnVector) value).vector, LongColumnVector.NULL_VALUE);
+                Arrays.fill(value.isNull, true);
+            }
+            else if(value instanceof BytesColumnVector) {
+                Arrays.fill(((BytesColumnVector) value).vector, null);
+                Arrays.fill(value.isNull, true);
+            }
+            //array and timestamp columnVectors don't provide fillWithNulls
+            //array and timestamp columnVectors appear to work with null values
+        });
+    }
+
 
     /*
      * get the schema for this batch
