@@ -10,6 +10,10 @@ public class JSONColumnFormat {
 
     public interface JSONColumnFormatFilter {
 
+        long getFilterCount();
+
+        void resetFilterCount();
+
         boolean filterPrefix(String prefix);
 
         boolean filterColumn(String str, Object o);
@@ -40,7 +44,16 @@ public class JSONColumnFormat {
     private JSONObject flatten(JSONColumnFormatFilter filter, boolean shouldFlatten, Set<String> hoistFields) {
         JSONObject flattened = new JSONObject();
         flatten(flattened, original, "", filter != null ? filter : new JSONColumnFormatFilter() {
-                @Override
+            @Override
+            public long getFilterCount() {
+                return 0;
+            }
+
+            @Override
+            public void resetFilterCount() {
+            }
+
+            @Override
                 public boolean filterPrefix(String str) {
                     return false;
                 }

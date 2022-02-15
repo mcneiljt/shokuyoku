@@ -69,7 +69,6 @@ public class Filter {
         producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
-
         KafkaConsumer<String,byte[]> consumer = new KafkaConsumer<>(consumerProps);
 
         KafkaProducer<String,byte[]> producer = new KafkaProducer<>(producerProps);
@@ -93,13 +92,17 @@ public class Filter {
                     eventName =eventName.substring(hadDot+1);
 
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
-                if(eventTypeJSONSchema==null){
+                if (eventTypeJSONSchema == null) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
                     continue;
                 }
-
-                JSONObject cleanedObject = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), false, Collections.singleton("properties"));
+                JSONColumnFormat.JSONColumnFormatFilter filter =  eventTypeJSONSchema.getJSONColumnFormatFilter();
+                JSONObject cleanedObject = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(filter, false, Collections.singleton("properties"));
                 Firehose firehoseMessage = new Firehose(f.getTopic(), cleanedObject.toString());
+
+                if (filter.getFilterCount() > 0) {
+                    producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                }
 
                 producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
             }

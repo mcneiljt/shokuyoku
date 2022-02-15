@@ -47,14 +47,34 @@ public class JSONSchemaDictionary {
 
         public JSONColumnFormat.JSONColumnFormatFilter getJSONColumnFormatFilter() {
             return new JSONColumnFormat.JSONColumnFormatFilter() {
+                private long filterCount = 0;
+
+                @Override
+                public long getFilterCount() {
+                    return filterCount;
+                }
+
+                @Override
+                public void resetFilterCount() {
+                    filterCount = 0;
+                }
+
                 @Override
                 public boolean filterPrefix(String prefix) {
-                    return !hasPrefix(prefix);
+                    if (!hasPrefix(prefix)) {
+                        filterCount++;
+                        return true;
+                    }
+                    return false;
                 }
 
                 @Override
                 public boolean filterColumn(String str, Object o) {
-                    return !hasColumn(str, o);
+                    if(!hasColumn(str, o)){
+                        filterCount++;
+                        return true;
+                    }
+                    return false;
                 }
             };
         }
