@@ -29,7 +29,8 @@ import java.util.UUID;
 
 public class BasicEventDriver implements EventDriver {
 
-    public BasicEventDriver(String eventName, String date) {
+    public BasicEventDriver(String databaseName, String eventName, String date) {
+        this.databaseName = databaseName;
         this.eventName = eventName;
         this.date = date;
         this.s3Bucket=System.getenv("S3_BUCKET");
@@ -205,7 +206,7 @@ public class BasicEventDriver implements EventDriver {
      * TODO: This should pull from hive
      */
     private void setTypeDescription() {
-        this.schema = TypeDescriptionProvider.getInstance(this.eventName);
+        this.schema = TypeDescriptionProvider.getInstance(this.databaseName, this.eventName);
     }
 
     /**
@@ -230,7 +231,7 @@ public class BasicEventDriver implements EventDriver {
     VectorizedRowBatch batch;
     TypeDescription schema;
     HashMap<String, ColumnVector> columns;
-    String eventName, fileName, date;
+    String databaseName, eventName, fileName, date;
     Configuration conf = new Configuration();
     Writer writer = null;
     StatsDClient statsd;

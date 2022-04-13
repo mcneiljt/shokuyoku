@@ -25,7 +25,7 @@ public class OrcTest {
 
         TypeDescriptionProvider.setinstance("test_event", td);
 
-        BasicEventDriver basicEventDriver = new BasicEventDriver("test_event", "2022-01-01");
+        BasicEventDriver basicEventDriver = new BasicEventDriver("test_database", "test_event", "2022-01-01");
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", "123");
         JSONObject jsonObjectABC = new JSONObject();

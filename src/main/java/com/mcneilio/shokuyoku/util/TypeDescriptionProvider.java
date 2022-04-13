@@ -16,7 +16,7 @@ public class TypeDescriptionProvider {
 
     private static Map<String,TypeDescription> typeDescriptions = null;
 
-    public static TypeDescription getInstance(String eventName) {
+    public static TypeDescription getInstance(String databaseName, String eventName) {
         if (typeDescriptions!=null ) {
             if(typeDescriptions.containsKey(eventName)) {
                 return typeDescriptions.get(eventName);
@@ -41,7 +41,7 @@ public class TypeDescriptionProvider {
         try {
             // TODO maybe this should be in the caller
             String tableName = eventName.substring(eventName.lastIndexOf(".")+1);
-            List<FieldSchema> a = hiveMetaStoreClient.getSchema("events", tableName);
+            List<FieldSchema> a = hiveMetaStoreClient.getSchema(databaseName, tableName);
             TypeDescription td=  TypeDescription.createStruct();
             for(FieldSchema fieldSchma : a){
                 if(fieldSchma.getType().equals("string")) {

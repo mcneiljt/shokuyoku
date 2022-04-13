@@ -14,12 +14,12 @@ import java.util.concurrent.TimeUnit;
 
 public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
-   public  OrcJSONSchemaDictionary(){
+   public  OrcJSONSchemaDictionary(String hiveURL, String databaseName){
 
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.local", "false");
 
-        hiveConf.setVar(HiveConf.ConfVars.METASTOREURIS, System.getenv("HIVE_URL"));
+        hiveConf.setVar(HiveConf.ConfVars.METASTOREURIS, hiveURL);
         hiveConf.set(HiveConf.ConfVars.PREEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");

@@ -45,6 +45,15 @@ public class Filter {
             System.out.println("KAFKA_OUTPUT_TOPIC environment variable should contain the topic to publish to. e.g. events");
             missingEnv = true;
         }
+        if(System.getenv("HIVE_URL") == null) {
+            System.out.println("HIVE_URL environment variable should contain the hive url");
+            missingEnv = true;
+        }
+        if(System.getenv("HIVE_DATABASE") == null) {
+            System.out.println("HIVE_DATABASE environment variable should contain the hive database to pull schemas from.");
+            missingEnv = true;
+        }
+
 
         if(missingEnv) {
             System.out.println("Missing required environment variable(s); exiting.");
@@ -75,7 +84,7 @@ public class Filter {
 
         consumer.subscribe(Arrays.asList(System.getenv("KAFKA_INPUT_TOPIC")));
 
-        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary();
+        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"));
 
         long pollMS = System.getenv("KAFKA_POLL_DURATION_MS")!=null ? Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS")) : 1000;
 

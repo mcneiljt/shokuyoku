@@ -31,6 +31,7 @@ public class Worker {
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
+        this.databaseName = System.getenv("HIVE_DATABASE");
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
         statsd = Statsd.getInstance();
@@ -51,7 +52,7 @@ public class Worker {
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + "with date: " + date);
-                    drivers.put(eventName+date, new BasicEventDriver(eventName, date));
+                    drivers.put(eventName+date, new BasicEventDriver(databaseName, eventName, date));
                 }
                 drivers.get(eventName+date).addMessage(msg);
                 currentOffset = record.offset();
@@ -121,6 +122,7 @@ public class Worker {
         }
     }
 
+    String databaseName;
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
