@@ -34,6 +34,7 @@
         }
     },
     "properties": {
+        "test_dot.char": "cat",
         "domain": "example.com",
         "pagePath": "/",
         "view": "home",

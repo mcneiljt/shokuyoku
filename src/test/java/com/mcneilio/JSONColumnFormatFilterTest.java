@@ -27,14 +27,21 @@ public class JSONColumnFormatFilterTest {
         prefixes.add("context");
         prefixes.add("context_library");
         prefixes.add("page_path");
+        prefixes.add("test");
+        prefixes.add("test_dot");
+        prefixes.add("_metadata");
 
         columns.put("context_library_name", String.class);
         columns.put("page_path", String.class);
+        columns.put("_metadata_bundled", String[].class);
+
+        columns.put("test_dot_char", String.class);
 
         JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns);
         jsonSchemaDictionary.addEventType("focus_window", eventTypeJSONSchema);
 
         JSONObject filtered = eventMsg.getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), false);
+        JSONObject filtered3 = eventMsg.getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), false, Collections.singleton("properties"));
 
         JSONObject filtered2 = eventMsg.getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), true, Collections.singleton("properties"));
 

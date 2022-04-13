@@ -46,6 +46,13 @@ public class JSONColumnFormatTest {
         assertThat(eventMsg.has("context_user_agent")).isTrue();
     }
 
+    @Test
+    public void flattenConvertDotName() throws Exception {
+        JSONObject eventMsg = getTestJSON();
+
+        assertThat(eventMsg.has("properties_test_dot_char")).isTrue();
+    }
+
     private JSONObject getTestJSON() throws Exception {
         String path = "src/test/resources";
         File file = new File(path);

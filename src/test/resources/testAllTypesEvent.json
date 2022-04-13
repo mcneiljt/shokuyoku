@@ -12,6 +12,8 @@
     "test_string": "ABC123",
     "test_varchar": "123ABC",
 
+    "test_dot.char": "cat",
+
     "test_string_array": ["ASD", "123"],
 
     "test_double_array": [1.23,4.56],

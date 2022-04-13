@@ -38,6 +38,7 @@ public class JSONColumnFormat {
         return key.replace(' ', '_')
             .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
             .replaceAll("([a-z])([A-Z])", "$1_$2")
+            .replaceAll("\\.","_")
             .toLowerCase();
     }
 
@@ -70,45 +71,44 @@ public class JSONColumnFormat {
     private void flatten(JSONObject dest, JSONObject obj, String prefix, JSONColumnFormatFilter filter, boolean shouldFlatten, Set<String> hoistFields) {
         obj.keys().forEachRemaining(key -> {
             String normalizedKey = normalizeKey(key);
+            String normalizedFullKey = prefix + normalizedKey;
+
             if (obj.get(key) instanceof JSONObject) {
                 if(hoistFields.contains(key)){
                     return;
                 }
                 // Keeping the _ at the end of prefix makes it so we can have an empty prefix
                 // for the base case and also makes it so we don't have to do the extra append for the child keys.
-                if (!filter.filterPrefix(prefix + normalizedKey)) {
+                if (!filter.filterPrefix(normalizedFullKey)) {
                     if (shouldFlatten) {
-                        flatten(dest, (JSONObject) obj.get(key), prefix + normalizedKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
-                    } else{
+                        flatten(dest, (JSONObject) obj.get(key), normalizedFullKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
+                    } else {
                         JSONObject newValue = new JSONObject();
                         dest.put(key,newValue);
-                        flatten(newValue, (JSONObject) obj.get(key), prefix + normalizedKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
+
+                        flatten(newValue, (JSONObject) obj.get(key), normalizedFullKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
                     }
                 }
             } else if (obj.get(key) instanceof JSONArray) {
-                if (!filter.filterColumn(prefix + normalizedKey, obj.get(key))) { // need to add the type to this filter too
-                    JSONArray arr =flatten(dest, (JSONArray) obj.get(key), prefix + normalizedKey, filter, shouldFlatten);
-                    dest.put(prefix + normalizedKey, obj.get(key));
+                if (!filter.filterColumn(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
+                    //JSONArray arr = flatten(dest, (JSONArray) obj.get(key), prefix + normalizedKey, filter, shouldFlatten);
+                    dest.put(shouldFlatten ? normalizedFullKey : key, obj.get(key));
                 }
             } else {
-                String normalizedFullKey = prefix + normalizedKey;
                 if (!filter.filterColumn(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
-
                     dest.put(shouldFlatten ? normalizedFullKey : key, obj.get(key));
                 }
             }
         });
 
         hoistFields.forEach(key -> {
-       //     String normalizedKey = normalizeKey(key);
-
-          //  if (shouldFlatten) {
+            if(shouldFlatten) {
                 flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
-//            } else{
-//                JSONObject newValue = new JSONObject();
-//                dest.put(key,newValue);
-//                flatten(newValue, (JSONObject) obj.get(key), prefix + normalizedKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
-//            }
+            } else if (obj.has(key)){
+                JSONObject subDest = new JSONObject();
+                dest.put(key, subDest);
+                flatten(subDest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+            }
         });
     }
 

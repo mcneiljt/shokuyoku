@@ -1,7 +1,11 @@
 package com.mcneilio.shokuyoku.util;
 
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
+import java.lang.reflect.Array;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -19,13 +23,17 @@ public class JSONSchemaDictionary {
                 public void accept(String columnName) {
                     Class type = columns.get(columnName);
                     if (type.equals(Double.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer.class, Double.class})));
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer.class, Double.class, BigDecimal.class})));
 
                     } else if(type.equals(Boolean.class)){
                         flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Boolean.class})));
 
                     } else if(type.equals(String.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class, Double.class, Boolean.class})));
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class, BigDecimal.class, Double.class, Boolean.class})));
+                    } else if(type.equals(String[].class)) {
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class})));
+                    } else {
+                        System.out.println("Issue");
                     }
                 }
             });
@@ -38,7 +46,22 @@ public class JSONSchemaDictionary {
             if (possibleClasses == null)
                 return false;
 
-            return possibleClasses.contains(o.getClass());
+            if(o instanceof JSONArray){
+                JSONArray jsonArray = (JSONArray) o;
+                if(jsonArray.length()==0){
+                    return possibleClasses.contains(Array.class);
+                }
+                Class c = jsonArray.get(0).getClass();
+                for(int i=1;i<jsonArray.length();i++){
+                    if(c.equals(String.class)){
+                        break;
+                    }
+                }
+
+                return possibleClasses.contains(Array.newInstance(c, 0).getClass());
+            }else {
+                return possibleClasses.contains(o.getClass());
+            }
         }
 
         public boolean hasPrefix(String prefix) {
@@ -71,7 +94,8 @@ public class JSONSchemaDictionary {
                 @Override
                 public boolean filterColumn(String str, Object o) {
                     if(!hasColumn(str, o)){
-                        filterCount++;
+                        if(!(o.equals(JSONObject.NULL)))
+                           filterCount++;
                         return true;
                     }
                     return false;

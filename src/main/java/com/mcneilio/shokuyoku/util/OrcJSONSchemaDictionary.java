@@ -4,9 +4,13 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.TException;
 
 import java.lang.reflect.Array;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
@@ -19,42 +23,69 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
         hiveConf.set(HiveConf.ConfVars.PREEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
         hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
-        HiveMetaStoreClient hiveMetaStoreClient = null;
 
         try {
-            hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
-        } catch (MetaException e) {
-            e.printStackTrace();
-        }
-        try {
+            HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
+
             String schema = "events";
             List<String> tableNames = hiveMetaStoreClient.getAllTables(schema);
-            for(String tableName : tableNames) {
-                System.out.println("Fetching Orc Table: "+tableName);
 
-                List<FieldSchema> a = hiveMetaStoreClient.getSchema(schema, tableName);
+            ExecutorService executors  = Executors.newFixedThreadPool(10);
+            for(final String tableName : tableNames) {
 
-                Set<String> prefixes = new HashSet<>();
-                Map<String, Class> columns = new HashMap<>();
-                for (FieldSchema fieldSchema : a) {
-                    String[] parts = fieldSchema.getName().split("_");
+                executors.submit(new Runnable() {
+                    @Override
+                    public void run() {
+                        System.out.println("Fetching Orc Table: "+tableName);
 
-                    String base = "";
-                    for (String pieceOne : parts) {
-                        if (base.length() == 0) {
-                            base = pieceOne;
-                        } else {
-                            base += "_" + pieceOne;
+                        List<FieldSchema> a = null;
+                        try {
+                            HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
+                            a = hiveMetaStoreClient.getSchema(schema, tableName);
+                        } catch (TException e) {
+                            e.printStackTrace();
                         }
-                        prefixes.add(base);
-                    }
 
-                    // int types
-                    columns.put(fieldSchema.getName(), getOrcJsonType(fieldSchema.getType()));
-                }
-                eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns));
-                break;
+                        Set<String> prefixes = new HashSet<>();
+                        Map<String, Class> columns = new HashMap<>();
+
+                        for (FieldSchema fieldSchema : a) {
+                            boolean leadingUnderscore = false;
+                            String base = "";
+                            for(String part: fieldSchema.getName().split("_")){
+                                if(part.length()==0){
+                                    leadingUnderscore=true;
+                                    continue;
+                                }
+                                String nextPart = (leadingUnderscore ? "_" :"") + part;
+                                base =  base.length() == 0  ? nextPart :  (base+"_"+nextPart);
+                                prefixes.add(base);
+
+                                leadingUnderscore=false;
+                            }
+//                            String[] parts = fieldSchema.getName().split("_");
+
+//                            String base = "";
+//                            for (String pieceOne : parts) {
+//                                if (base.length() == 0) {
+//                                    base = pieceOne;
+//                                } else {
+//                                    base += "_" + pieceOne;
+//                                }
+//                            }
+
+                            // int types
+                            columns.put(fieldSchema.getName(), getOrcJsonType(fieldSchema.getType()));
+                        }
+                        synchronized (eventTypes) {
+                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns));
+                        }
+                        System.out.println("Fetched Orc Table: "+tableName);
+                    }
+                });
             }
+            executors.shutdown();
+            executors.awaitTermination(10, TimeUnit.MINUTES);
         } catch (Exception e) {
             System.err.println("Error fetching types: "+ e.getMessage());
         }
