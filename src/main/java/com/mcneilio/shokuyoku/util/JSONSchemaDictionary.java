@@ -53,13 +53,21 @@ public class JSONSchemaDictionary {
                 }
                 Class c = jsonArray.get(0).getClass();
                 for(int i=1;i<jsonArray.length();i++){
-                    if(c.equals(String.class)){
+                    if(c.equals(String.class) || c.equals(JSONObject.class)){
                         break;
+                    }
+                    Class newC = jsonArray.get(i).getClass();
+                    if(!c.equals(newC)){
+                        return possibleClasses.contains(String.class);
                     }
                 }
 
+                if(c.equals(JSONObject.class)) {
+                    return possibleClasses.contains(String.class);
+                }
+
                 return possibleClasses.contains(Array.newInstance(c, 0).getClass());
-            }else {
+            } else {
                 return possibleClasses.contains(o.getClass());
             }
         }

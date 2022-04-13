@@ -1,9 +1,9 @@
 package com.mcneilio.shokuyoku.util;
 
+import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TException;
 
 import java.lang.reflect.Array;

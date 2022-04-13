@@ -12,10 +12,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.json.JSONObject;
-//import software.amazon.ion.Timestamp;
-
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Properties;
@@ -64,7 +63,7 @@ public class Worker {
                 });
                 drivers.clear();
                 if(currentOffset != 0) {
-                    System.out.println("Committing offset: " + currentOffset + " at: " /*+ Timestamp.nowZ()*/);
+                    System.out.println("Committing offset: " + currentOffset + " at: " + Instant.now().toString()  );
                     currentOffset = 0;
                     consumer.commitSync();
                 }
