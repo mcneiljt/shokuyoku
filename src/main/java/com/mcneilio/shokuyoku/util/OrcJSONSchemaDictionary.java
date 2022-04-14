@@ -27,7 +27,7 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
         try {
             HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
 
-            String schema = "events";
+            String schema = databaseName;
             List<String> tableNames = hiveMetaStoreClient.getAllTables(schema);
 
             ExecutorService executors  = Executors.newFixedThreadPool(10);

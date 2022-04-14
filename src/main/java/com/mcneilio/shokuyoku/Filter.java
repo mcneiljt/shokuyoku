@@ -4,6 +4,8 @@ import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import com.mcneilio.shokuyoku.util.JSONSchemaDictionary;
 import com.mcneilio.shokuyoku.util.OrcJSONSchemaDictionary;
+import com.mcneilio.shokuyoku.util.Statsd;
+import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -64,6 +66,8 @@ public class Filter {
     public static void main(String[] args){
         verifyEnvironment();
         System.out.println("Shokuyoku filter will start processing requests from topic: " + System.getenv("KAFKA_INPUT_TOPIC")+ " and output to: " + System.getenv("KAFKA_OUTPUT_TOPIC"));
+
+        statsd = Statsd.getInstance();
         Properties consumerProps = new Properties();
         consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
         consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
@@ -91,7 +95,7 @@ public class Filter {
         while (true) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(pollMS));
 
-            System.out.println("Received batch of size: " + records.count());
+            statsd.histogram("shokuyoku_filter.batch_size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
 
             for (ConsumerRecord<String,byte[]> record : records) {
                 Firehose f = new Firehose(record.value());
@@ -103,6 +107,8 @@ public class Filter {
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
                 if (eventTypeJSONSchema == null) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                    statsd.increment("filter.skipped", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:false","topic:"+eventName});
+
                     continue;
                 }
                 JSONColumnFormat.JSONColumnFormatFilter filter =  eventTypeJSONSchema.getJSONColumnFormatFilter();
@@ -110,13 +116,23 @@ public class Filter {
                 Firehose firehoseMessage = new Firehose(f.getTopic(), cleanedObject.toString());
 
                 if (filter.getFilterCount() > 0) {
+                    statsd.histogram("filter.error", filter.getFilterCount(), new String[]{"env:"+System.getenv("STATSD_ENV")});
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
                 }
 
+                if (new JSONObject(f.getMessage()).similar(cleanedObject)){
+                    statsd.increment("filter.similar", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:true","topic:"+eventName});
+                } else {
+                    statsd.increment("filter.similar", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:false","topic:"+eventName});
+                }
+
+                statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                 producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
             }
 
             consumer.commitSync();
         }
     }
+
+    static StatsDClient statsd;
 }
