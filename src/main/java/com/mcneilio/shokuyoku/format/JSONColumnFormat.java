@@ -1,5 +1,6 @@
 package com.mcneilio.shokuyoku.format;
 
+import com.mcneilio.shokuyoku.util.StringNormalizer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -34,13 +35,6 @@ public class JSONColumnFormat {
         return flatten(filter, shouldFlatten, Collections.EMPTY_SET);
     }
 
-    public static String normalizeKey(String key) {
-        return key.replace(' ', '_')
-            //.replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2") // Not sure which case this was solving for
-            .replaceAll("([a-z0-9])([A-Z]+)", "$1_$2")
-            .replaceAll("\\.","_")
-            .toLowerCase();
-    }
 
     private JSONObject flatten(JSONColumnFormatFilter filter, boolean shouldFlatten, Set<String> hoistFields) {
         JSONObject flattened = new JSONObject();
@@ -70,7 +64,7 @@ public class JSONColumnFormat {
 
     private void flatten(JSONObject dest, JSONObject obj, String prefix, JSONColumnFormatFilter filter, boolean shouldFlatten, Set<String> hoistFields) {
         obj.keys().forEachRemaining(key -> {
-            String normalizedKey = normalizeKey(key);
+            String normalizedKey = StringNormalizer.normalizeKey(key);
             String normalizedFullKey = prefix + normalizedKey;
 
             if (obj.get(key) instanceof JSONObject) {

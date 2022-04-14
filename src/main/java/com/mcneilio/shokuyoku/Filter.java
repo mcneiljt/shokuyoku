@@ -95,7 +95,7 @@ public class Filter {
         while (true) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(pollMS));
 
-            statsd.histogram("shokuyoku_filter.batch_size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
+            statsd.histogram("filter.batch_size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
 
             for (ConsumerRecord<String,byte[]> record : records) {
                 Firehose f = new Firehose(record.value());
@@ -116,7 +116,7 @@ public class Filter {
                 Firehose firehoseMessage = new Firehose(f.getTopic(), cleanedObject.toString());
 
                 if (filter.getFilterCount() > 0) {
-                    statsd.histogram("filter.error", filter.getFilterCount(), new String[]{"env:"+System.getenv("STATSD_ENV")});
+                    statsd.histogram("filter.error", filter.getFilterCount(), new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
                 }
 

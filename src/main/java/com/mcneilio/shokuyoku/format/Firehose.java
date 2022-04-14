@@ -1,5 +1,7 @@
 package com.mcneilio.shokuyoku.format;
 
+import com.mcneilio.shokuyoku.util.StringNormalizer;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -76,7 +78,7 @@ public class Firehose {
                 topicLength));
 
         // convert to snake case
-        this.topic = JSONColumnFormat.normalizeKey(fullTopic);
+        this.topic = StringNormalizer.normalizeTopic(fullTopic);
 
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
                 topicLength, 7+topicLength+msgLength));

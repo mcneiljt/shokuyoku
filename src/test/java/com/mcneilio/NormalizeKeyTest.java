@@ -1,6 +1,7 @@
 package com.mcneilio;
 
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
+import com.mcneilio.shokuyoku.util.StringNormalizer;
 import org.junit.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,31 +11,36 @@ public class NormalizeKeyTest {
 
     @Test
     public void simpleLowerCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("asd").equals("asd"));
+        assertTrue(StringNormalizer.normalizeKey("asd").equals("asd"));
     }
 
     @Test
     public void simpleSingleUpperCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("catDog").equals("cat_dog"));
+        assertTrue(StringNormalizer.normalizeKey("catDog").equals("cat_dog"));
     }
 
     @Test
     public void simpleDoubleUpperCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("catDOg").equals("cat_dog"));
+        assertTrue(StringNormalizer.normalizeKey("catDOg").equals("cat_dog"));
     }
 
     @Test
     public void simpleLeadingUpperCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("Dog").equals("dog"));
+        assertTrue(StringNormalizer.normalizeKey("Dog").equals("dog"));
     }
 
     @Test
     public void simpleNumberCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("c3Dog").equals("c3_dog"));
+        assertTrue(StringNormalizer.normalizeKey("c3Dog").equals("c3_dog"));
     }
 
     @Test
-    public void simpleDogCase() throws Exception {
-        assertTrue(JSONColumnFormat.normalizeKey("cat.dog").equals("cat_dog"));
+    public void simpleDotCase() throws Exception {
+        assertTrue(StringNormalizer.normalizeKey("cat.dog").equals("cat_dog"));
+    }
+
+    @Test
+    public void simpleDotCaseTopic() throws Exception {
+        assertTrue(StringNormalizer.normalizeTopic("cat.dog").equals("cat.dog"));
     }
 }
