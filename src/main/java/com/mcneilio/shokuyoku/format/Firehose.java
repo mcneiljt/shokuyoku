@@ -76,7 +76,7 @@ public class Firehose {
                 topicLength));
 
         // convert to snake case
-        this.topic = fullTopic.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
+        this.topic = JSONColumnFormat.normalizeKey(fullTopic);
 
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
                 topicLength, 7+topicLength+msgLength));

@@ -36,8 +36,8 @@ public class JSONColumnFormat {
 
     public static String normalizeKey(String key) {
         return key.replace(' ', '_')
-            .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
-            .replaceAll("([a-z])([A-Z])", "$1_$2")
+            //.replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2") // Not sure which case this was solving for
+            .replaceAll("([a-z0-9])([A-Z]+)", "$1_$2")
             .replaceAll("\\.","_")
             .toLowerCase();
     }

@@ -100,9 +100,9 @@ public class Filter {
             for (ConsumerRecord<String,byte[]> record : records) {
                 Firehose f = new Firehose(record.value());
                 String eventName = f.getTopic();
-                int hadDot =eventName.lastIndexOf(".");
-                if(hadDot>=0)
-                    eventName =eventName.substring(hadDot+1);
+                int hadDot = eventName.lastIndexOf(".");
+                if (hadDot >= 0)
+                    eventName =eventName.substring(hadDot + 1);
 
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
                 if (eventTypeJSONSchema == null) {

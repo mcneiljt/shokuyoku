@@ -27,7 +27,6 @@ public class JSONSchemaDictionary {
 
                     } else if(type.equals(Boolean.class)){
                         flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Boolean.class})));
-
                     } else if(type.equals(String.class)){
                         flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class, BigDecimal.class, Double.class, Boolean.class})));
                     } else if(type.equals(String[].class)) {
