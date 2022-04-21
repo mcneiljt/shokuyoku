@@ -17,9 +17,7 @@ import org.json.JSONObject;
 
 import java.time.Duration;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Properties;
+import java.util.*;
 
 public class Filter {
 
@@ -67,6 +65,10 @@ public class Filter {
         verifyEnvironment();
         System.out.println("Shokuyoku filter will start processing requests from topic: " + System.getenv("KAFKA_INPUT_TOPIC")+ " and output to: " + System.getenv("KAFKA_OUTPUT_TOPIC"));
 
+        boolean checkSimilar = "true".equals(System.getenv("CHECK_SIMILAR"));
+        boolean ignoreNulls = "true".equals(System.getenv("IGNORE_NULLS"));
+        boolean allowInvalidCoercions = "true".equals(System.getenv("ALLOW_INVALID_COERCIONS"));
+
         statsd = Statsd.getInstance();
         Properties consumerProps = new Properties();
         consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
@@ -88,7 +90,24 @@ public class Filter {
 
         consumer.subscribe(Arrays.asList(System.getenv("KAFKA_INPUT_TOPIC")));
 
-        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"));
+        HashMap<String, HashMap<String, Class>> schemaOverrides = new HashMap<>();
+
+        // This is gross and I feel bad about it.
+        if (System.getenv("SCHEMA_OVERRIDES") != null){
+            JSONObject schemaOverridesEnv = new JSONObject(System.getenv("SCHEMA_OVERRIDES"));
+            HashMap<String, Class> columns = new HashMap<>();
+            for(String eventTypeName: schemaOverridesEnv.keySet()) {
+                for(String columnName: ((JSONObject)schemaOverridesEnv.get(eventTypeName)).keySet()) {
+                    String columnType = ((JSONObject)schemaOverridesEnv.get(eventTypeName)).getString(columnName);
+                    if (columnType.equals("string")){
+                        columns.put(columnName, String.class);
+                    }
+                }
+                schemaOverrides.put(eventTypeName, columns);
+            }
+        }
+
+        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"), ignoreNulls, allowInvalidCoercions, schemaOverrides);
 
         long pollMS = System.getenv("KAFKA_POLL_DURATION_MS")!=null ? Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS")) : 1000;
 
@@ -120,10 +139,12 @@ public class Filter {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
                 }
 
-                if (new JSONObject(f.getMessage()).similar(cleanedObject)){
-                    statsd.increment("filter.similar", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:true","topic:"+eventName});
-                } else {
-                    statsd.increment("filter.similar", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:false","topic:"+eventName});
+                if (checkSimilar) {
+                    if (new JSONObject(f.getMessage()).similar(cleanedObject)) {
+                        statsd.increment("filter.similar", 1, new String[]{"env:" + System.getenv("STATSD_ENV"), "similar:true", "topic:" + eventName});
+                    } else {
+                        statsd.increment("filter.similar", 1, new String[]{"env:" + System.getenv("STATSD_ENV"), "similar:false", "topic:" + eventName});
+                    }
                 }
 
                 statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});

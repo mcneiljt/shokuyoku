@@ -13,9 +13,11 @@ public class JSONSchemaDictionary {
     public static class EventTypeJSONSchema {
         public Set<String> prefixes;
         public Map<String, Set<Class>> columns;
+        private boolean ignoreNulls;
 
-        public EventTypeJSONSchema(Set<String> prefixes, Map<String, Class> columns){
+        public EventTypeJSONSchema(Set<String> prefixes, Map<String, Class> columns, boolean ignoreNulls, boolean allowInvalidCoercions){
             this.prefixes = prefixes;
+            this.ignoreNulls = ignoreNulls;
 
             Map<String, Set<Class>> flattenedMap = new HashMap<>();
             columns.keySet().forEach(new Consumer<String>() {
@@ -23,14 +25,19 @@ public class JSONSchemaDictionary {
                 public void accept(String columnName) {
                     Class type = columns.get(columnName);
                     if (type.equals(Double.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer.class, Double.class, BigDecimal.class})));
-
+                        HashSet<Class> allowedTypes = new HashSet(Arrays.asList(new Class[] {Integer.class, Long.class, Double.class, BigDecimal.class}));
+                        if (allowInvalidCoercions) {
+                            allowedTypes.addAll(Arrays.asList(new Class[] {String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class}));
+                        }
+                        flattenedMap.put(columnName, allowedTypes);
                     } else if(type.equals(Boolean.class)){
                         flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Boolean.class})));
                     } else if(type.equals(String.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class, BigDecimal.class, Double.class, Boolean.class})));
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class,Long.class, BigDecimal.class, Double.class, Boolean.class, String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class})));
                     } else if(type.equals(String[].class)) {
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class})));
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String[].class, Integer[].class, Long[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class, String.class, Integer.class, Long.class, BigDecimal.class, Double.class, Boolean.class})));
+                    } else if(type.equals(Double[].class)) {
+                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer[].class, BigDecimal[].class, Double[].class, Long[].class, Array.class})));
                     } else {
                         System.out.println("Issue");
                     }
@@ -100,7 +107,7 @@ public class JSONSchemaDictionary {
 
                 @Override
                 public boolean filterColumn(String str, Object o) {
-                    if(!hasColumn(str, o)){
+                    if(!(ignoreNulls && o.equals(JSONObject.NULL)) && !hasColumn(str, o)){
                         if(!(o.equals(JSONObject.NULL)))
                            filterCount++;
                         return true;

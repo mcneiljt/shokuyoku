@@ -7,9 +7,9 @@ public class StringNormalizer {
     }
 
     public static String normalizeTopic(String topicName) {
-        return topicName.replace(' ', '_')
-            //.replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2") // Not sure which case this was solving for
-            .replaceAll("([a-z0-9])([A-Z]+)", "$1_$2")
+        return topicName.replaceAll("[^a-zA-Z\\d.]", "_")
+            .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2") // Not sure which case this was solving for
+            .replaceAll("([a-z\\d])([A-Z])", "$1_$2")
             .toLowerCase();
     }
 }

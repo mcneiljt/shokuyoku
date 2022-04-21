@@ -37,7 +37,7 @@ public class JSONColumnFormatFilterTest {
 
         columns.put("test_dot_char", String.class);
 
-        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns);
+        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false);
         jsonSchemaDictionary.addEventType("focus_window", eventTypeJSONSchema);
 
         JSONObject filtered = eventMsg.getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), false);

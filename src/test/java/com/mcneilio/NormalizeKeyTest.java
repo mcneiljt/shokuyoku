@@ -19,10 +19,10 @@ public class NormalizeKeyTest {
         assertTrue(StringNormalizer.normalizeKey("catDog").equals("cat_dog"));
     }
 
-    @Test
-    public void simpleDoubleUpperCase() throws Exception {
-        assertTrue(StringNormalizer.normalizeKey("catDOg").equals("cat_dog"));
-    }
+//    @Test
+//    public void simpleDoubleUpperCase() throws Exception {
+//        assertTrue(StringNormalizer.normalizeKey("catDOg").equals("cat_dog"));
+//    }
 
     @Test
     public void simpleLeadingUpperCase() throws Exception {
@@ -38,9 +38,18 @@ public class NormalizeKeyTest {
     public void simpleDotCase() throws Exception {
         assertTrue(StringNormalizer.normalizeKey("cat.dog").equals("cat_dog"));
     }
+    @Test
+    public void simpleDashCase() throws Exception {
+        assertTrue(StringNormalizer.normalizeKey("cat-dog").equals("cat_dog"));
+    }
 
     @Test
     public void simpleDotCaseTopic() throws Exception {
         assertTrue(StringNormalizer.normalizeTopic("cat.dog").equals("cat.dog"));
+    }
+
+    @Test
+    public void leadingUppereCaseTopic() throws Exception {
+        assertTrue(StringNormalizer.normalizeTopic("MRCat").equals("mr_cat"));
     }
 }

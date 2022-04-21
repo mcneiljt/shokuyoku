@@ -1,6 +1,5 @@
 package com.mcneilio.shokuyoku.util;
 
-import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -14,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
-   public  OrcJSONSchemaDictionary(String hiveURL, String databaseName){
+   public  OrcJSONSchemaDictionary(String hiveURL, String databaseName, boolean ignoreNulls, boolean allowInvalidCoercions, HashMap<String, HashMap<String, Class>> schemaOverrides){
 
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.local", "false");
@@ -50,44 +49,45 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
                         Map<String, Class> columns = new HashMap<>();
 
                         for (FieldSchema fieldSchema : a) {
-                            boolean leadingUnderscore = false;
-                            String base = "";
-                            for(String part: fieldSchema.getName().split("_")){
-                                if(part.length()==0){
-                                    leadingUnderscore=true;
-                                    continue;
-                                }
-                                String nextPart = (leadingUnderscore ? "_" :"") + part;
-                                base =  base.length() == 0  ? nextPart :  (base+"_"+nextPart);
-                                prefixes.add(base);
-
-                                leadingUnderscore=false;
-                            }
-//                            String[] parts = fieldSchema.getName().split("_");
-
-//                            String base = "";
-//                            for (String pieceOne : parts) {
-//                                if (base.length() == 0) {
-//                                    base = pieceOne;
-//                                } else {
-//                                    base += "_" + pieceOne;
-//                                }
-//                            }
-
-                            // int types
+                            addPrefixes(fieldSchema.getName(), prefixes);
                             columns.put(fieldSchema.getName(), getOrcJsonType(fieldSchema.getType()));
                         }
+
+                        if(schemaOverrides!=null && schemaOverrides.containsKey(tableName)){
+                            for(String columnName: schemaOverrides.get(tableName).keySet()){
+                                addPrefixes(columnName, prefixes);
+                                columns.put(columnName, schemaOverrides.get(tableName).get(columnName));
+                            }
+                        }
+
                         synchronized (eventTypes) {
-                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns));
+                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns, ignoreNulls, allowInvalidCoercions));
                         }
                         System.out.println("Fetched Orc Table: "+tableName);
                     }
                 });
             }
+
             executors.shutdown();
             executors.awaitTermination(10, TimeUnit.MINUTES);
         } catch (Exception e) {
             System.err.println("Error fetching types: "+ e.getMessage());
+        }
+    }
+
+    private static void addPrefixes(String fieldName, Set<String> prefixes) {
+        boolean leadingUnderscore = false;
+        String base = "";
+        for (String part: fieldName.split("_")) {
+            if(part.length()==0){
+                leadingUnderscore=true;
+                continue;
+            }
+            String nextPart = (leadingUnderscore ? "_" :"") + part;
+            base =  base.length() == 0  ? nextPart :  (base+"_"+nextPart);
+            prefixes.add(base);
+
+            leadingUnderscore=false;
         }
     }
 

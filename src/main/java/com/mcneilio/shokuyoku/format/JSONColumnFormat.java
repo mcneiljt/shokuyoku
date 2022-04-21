@@ -73,7 +73,7 @@ public class JSONColumnFormat {
                 }
                 // Keeping the _ at the end of prefix makes it so we can have an empty prefix
                 // for the base case and also makes it so we don't have to do the extra append for the child keys.
-                if (!filter.filterPrefix(normalizedFullKey)) {
+                if (!filter.filterPrefix(normalizedFullKey) || ((JSONObject)obj.get(key)).length()==0) {
                     if (shouldFlatten) {
                         flatten(dest, (JSONObject) obj.get(key), normalizedFullKey + "_", filter, shouldFlatten, Collections.EMPTY_SET);
                     } else {
