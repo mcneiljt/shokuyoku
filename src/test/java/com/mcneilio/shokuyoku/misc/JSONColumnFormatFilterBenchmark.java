@@ -1,4 +1,4 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.misc;
 
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import com.mcneilio.shokuyoku.util.JSONSchemaDictionary;
@@ -12,7 +12,6 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class JSONColumnFormatFilterBenchmark {
-
     @Test
     public void flattenDoesNotContainTopLevelObjects() throws Exception {
         SimpleJSONSchemaDictionary jsonSchemaDictionary = new SimpleJSONSchemaDictionary();
@@ -48,6 +47,5 @@ public class JSONColumnFormatFilterBenchmark {
 
         String eventText = new String(Files.readAllBytes(Paths.get(resourcesPath)));
         return eventText;
-
     }
 }

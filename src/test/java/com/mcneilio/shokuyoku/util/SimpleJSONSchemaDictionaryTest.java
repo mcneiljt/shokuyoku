@@ -1,4 +1,4 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.util;
 
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;

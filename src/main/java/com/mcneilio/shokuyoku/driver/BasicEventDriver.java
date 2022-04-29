@@ -29,12 +29,13 @@ import java.util.UUID;
 
 public class BasicEventDriver implements EventDriver {
 
-    public BasicEventDriver(String databaseName, String eventName, String date) {
-        this.databaseName = databaseName;
+    public BasicEventDriver(String eventName, String date, TypeDescription typeDescription, StorageDriver storageDriver) {
         this.eventName = eventName;
         this.date = date;
-        this.s3Bucket=System.getenv("S3_BUCKET");
-        setTypeDescription();
+        this.storageDriver = storageDriver;
+        this.schema = typeDescription;
+
+        // TODO This env vars should probably be pulled out.
         this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") !=null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
         setColumns();
         nullColumnsV2();
@@ -124,14 +125,8 @@ public class BasicEventDriver implements EventDriver {
             try {
                 writer.close();
                 writer = null;
-                if (s3Bucket != null){
-                    PutObjectRequest putOb = PutObjectRequest.builder()
-                        .bucket(System.getenv("S3_BUCKET"))
-                        .key(System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") + "/"
-                            + eventName + "/date=" + date + "/" + fileName)
-                        .build();
-
-                    s3.putObject(putOb, Paths.get(fileName));
+                if (storageDriver != null){
+                    storageDriver.addFile(date,  eventName, fileName, Paths.get(fileName));
                 }
                 //TODO: create hive partition
                 if(deleteFile)
@@ -163,10 +158,7 @@ public class BasicEventDriver implements EventDriver {
             System.out.println("Error writing orc file");
             e.printStackTrace();
         }
-//        catch (SdkClientException e) {
-//            System.out.println("Error with AWS SDK");
-//            e.printStackTrace();
-//        }
+
         statsd.histogram("eventDriver.write.ms", Instant.now().toEpochMilli() - t,
             new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
@@ -201,14 +193,6 @@ public class BasicEventDriver implements EventDriver {
     }
 
 
-    /*
-     * get the schema for this batch
-     * TODO: This should pull from hive
-     */
-    private void setTypeDescription() {
-        this.schema = TypeDescriptionProvider.getInstance(this.databaseName, this.eventName);
-    }
-
     /**
      * The goal here is to tie column vectors to the keys, so they can be easily referenced
      *
@@ -227,16 +211,14 @@ public class BasicEventDriver implements EventDriver {
         return fileName;
     }
 
-    String s3Bucket;
+
     VectorizedRowBatch batch;
     TypeDescription schema;
     HashMap<String, ColumnVector> columns;
-    String databaseName, eventName, fileName, date;
+    String eventName, fileName, date;
     Configuration conf = new Configuration();
     Writer writer = null;
     StatsDClient statsd;
-    final S3Client s3 = S3Client.builder()
-        .region(Region.of(System.getenv("AWS_DEFAULT_REGION") !=null ? System.getenv("AWS_DEFAULT_REGION") : "us-west-2"))
-        .build();
-//    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.fromName(System.getenv("AWS_DEFAULT_REGION") !=null ? System.getenv("AWS_DEFAULT_REGION") : "us-west-2")).build();
+    StorageDriver storageDriver;
+
 }

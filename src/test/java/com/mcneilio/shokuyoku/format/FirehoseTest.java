@@ -1,4 +1,4 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.format;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

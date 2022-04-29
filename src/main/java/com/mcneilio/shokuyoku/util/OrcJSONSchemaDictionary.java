@@ -126,5 +126,4 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
             return null;
         }
     }
-
 }

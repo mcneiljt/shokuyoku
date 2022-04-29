@@ -31,8 +31,6 @@ public class Filter {
             System.out.println("KAFKA_GROUP_ID environment variable should contain a the kafka group id that the consume should use.");
             missingEnv = true;
         }
-
-
         if(System.getenv("KAFKA_INPUT_TOPIC") == null) {
             System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
@@ -53,7 +51,6 @@ public class Filter {
             System.out.println("HIVE_DATABASE environment variable should contain the hive database to pull schemas from.");
             missingEnv = true;
         }
-
 
         if(missingEnv) {
             System.out.println("Missing required environment variable(s); exiting.");

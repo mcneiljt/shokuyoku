@@ -1,6 +1,8 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.misc;
 
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.driver.LocalStorageDriver;
+import com.mcneilio.shokuyoku.util.MemoryDescriptionProvider;
 import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -14,18 +16,27 @@ import org.apache.orc.TypeDescription;
 import org.json.JSONObject;
 import org.junit.Test;
 
+import java.nio.file.Files;
 
 public class OrcTest {
     @Test
     public void simpleWriteRead() throws Exception {
+        String basePath = Files.createTempDirectory("tmpDirPrefix").toFile().getAbsolutePath();
 
         TypeDescription td = TypeDescription.createStruct();
         td = td.addField("id", TypeDescription.createString());
         td = td.addField("date", TypeDescription.createDate());
 
-        TypeDescriptionProvider.setinstance("test_event", td);
+        MemoryDescriptionProvider memoryDescriptionProvider = new MemoryDescriptionProvider();
 
-        BasicEventDriver basicEventDriver = new BasicEventDriver("test_database", "test_event", "2022-01-01");
+        memoryDescriptionProvider.setinstance("test_event", td);
+
+        LocalStorageDriver localStorageDriver = new LocalStorageDriver(basePath);
+
+        TypeDescription typeDescription = memoryDescriptionProvider.getInstance("test_database", "test_event");
+
+
+        BasicEventDriver basicEventDriver = new BasicEventDriver( "test_event", "2022-01-01", typeDescription, localStorageDriver);
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("id", "123");
         JSONObject jsonObjectABC = new JSONObject();
@@ -35,17 +46,14 @@ public class OrcTest {
         basicEventDriver.addMessage(new JSONObject());
 
         String filename = basicEventDriver.flush(false);
-        System.out.println("ASD");
         Reader reader = OrcFile.createReader(new Path(filename), OrcFile.readerOptions(new Configuration()));
-        System.out.println("ASD");
         RecordReader a = reader.rows();
         VectorizedRowBatch batch = reader.getSchema().createRowBatch(10);
         while (a.nextBatch(batch)) {
             LongColumnVector dateCol = (LongColumnVector) batch.cols[1];
             BytesColumnVector idCol = (BytesColumnVector) batch.cols[0];
             for (int rowNum = 0; rowNum < batch.size; rowNum++) {
-                System.out.println("ASD: "+dateCol.vector[rowNum]+" "+idCol.vector[rowNum].toString());
-
+                System.out.println("Row: "+dateCol.vector[rowNum]+" "+idCol.vector[rowNum].toString());
             }
         }
     }

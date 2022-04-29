@@ -2,15 +2,20 @@ package com.mcneilio.shokuyoku;
 
 import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.driver.S3StorageDriver;
+import com.mcneilio.shokuyoku.driver.StorageDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
+import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.orc.TypeDescription;
 import org.json.JSONObject;
 
 import java.time.Duration;
@@ -20,7 +25,9 @@ import java.util.HashMap;
 import java.util.Properties;
 
 public class Worker {
+
     public Worker() {
+
         verifyEnvironment();
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
         Properties props = new Properties();
@@ -31,6 +38,7 @@ public class Worker {
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
+        this.descriptionProvider = new HiveDescriptionProvider();
         this.databaseName = System.getenv("HIVE_DATABASE");
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
@@ -39,6 +47,11 @@ public class Worker {
 
     protected void start() {
         long currentOffset = 0;
+        StorageDriver storageDriver = null;
+        if(System.getenv("S3_BUCKET")!=null) {
+            storageDriver=new S3StorageDriver(System.getenv("S3_BUCKET"),System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") );
+        }
+
         while (true) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
@@ -52,7 +65,8 @@ public class Worker {
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + "with date: " + date);
-                    drivers.put(eventName+date, new BasicEventDriver(databaseName, eventName, date));
+                    TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
                 }
                 drivers.get(eventName+date).addMessage(msg);
                 currentOffset = record.offset();
@@ -127,4 +141,6 @@ public class Worker {
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
     StatsDClient statsd;
+    private final HiveDescriptionProvider descriptionProvider;
+
 }
