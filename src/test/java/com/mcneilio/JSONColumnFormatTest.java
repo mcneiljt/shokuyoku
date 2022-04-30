@@ -12,6 +12,25 @@ import org.junit.Test;
 public class JSONColumnFormatTest {
 
     @Test
+    public void flattenPerformance() throws Exception {
+        String path = "src/test/resources";
+        File file = new File(path);
+        String resourcesPath = file.getAbsolutePath() + "/testEvent.json";
+
+        String eventText = new String(Files.readAllBytes(Paths.get(resourcesPath)));
+        JSONObject eventJson = new JSONObject(eventText);
+        long result = 0;
+        for(int i=0; i<10; i++) {
+            long timer = System.nanoTime();
+            new JSONColumnFormat(eventJson).getFlattened();
+            result += System.nanoTime() - timer;
+        }
+        long finalResult = result/10;
+        System.out.println("JSON Flattened 10 times taking an average of: " + finalResult + " ns");
+        assert finalResult < 1000000;
+    }
+
+    @Test
     public void flattenDoesNotContainTopLevelObjects() throws Exception {
         JSONObject eventMsg = getTestJSON();
 
