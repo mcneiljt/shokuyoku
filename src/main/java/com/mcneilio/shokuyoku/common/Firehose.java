@@ -1,4 +1,4 @@
-package com.mcneilio.shokuyoku.format;
+package com.mcneilio.shokuyoku.common;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;

@@ -1,4 +1,4 @@
-package com.mcneilio.shokuyoku.util;
+package com.mcneilio.shokuyoku.common;
 
 import com.timgroup.statsd.NonBlockingStatsDClientBuilder;
 import com.timgroup.statsd.StatsDClient;

@@ -1,10 +1,10 @@
-package com.mcneilio.shokuyoku.driver;
+package com.mcneilio.shokuyoku.funnel;
 
 import com.amazonaws.SdkClientException;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.common.Statsd;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -48,18 +48,18 @@ public class BasicEventDriver implements EventDriver {
         int batchPosition = batch.size++;
         msg.keys().forEachRemaining(key -> {
             if(columns.containsKey(key)) {
-                if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
+                if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof String) {
                     ((BytesColumnVector) columns.get(key)).setRef(batchPosition,msg.getString(key).getBytes(),
                             0,msg.getString(key).getBytes().length);
                     columns.get(key).isNull[batchPosition] = false;
                 }
                 else if(columns.get(key) instanceof LongColumnVector) {
                     LongColumnVector columnVector = (LongColumnVector) columns.get(key);
-                    if(msg.get(key) instanceof java.lang.Integer) {
+                    if(msg.get(key) instanceof Integer) {
                         columnVector.vector[batchPosition] = msg.getInt(key);
                         columns.get(key).isNull[batchPosition] = false;
                     }
-                    else if(msg.get(key) instanceof java.lang.Boolean) {
+                    else if(msg.get(key) instanceof Boolean) {
                         columnVector.vector[batchPosition] = msg.getBoolean(key) ? 1 : 0;
                         columns.get(key).isNull[batchPosition] = false;
                     }

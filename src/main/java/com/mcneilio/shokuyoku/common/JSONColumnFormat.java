@@ -1,4 +1,4 @@
-package com.mcneilio.shokuyoku.format;
+package com.mcneilio.shokuyoku.common;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

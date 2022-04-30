@@ -1,11 +1,8 @@
-package com.mcneilio.shokuyoku;
+package com.mcneilio.shokuyoku.funnel;
 
-import com.mcneilio.shokuyoku.driver.EventDriver;
-import com.mcneilio.shokuyoku.driver.BasicEventDriver;
-import com.mcneilio.shokuyoku.format.Firehose;
-import com.mcneilio.shokuyoku.format.JSONColumnFormat;
-
-import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.common.Firehose;
+import com.mcneilio.shokuyoku.common.JSONColumnFormat;
+import com.mcneilio.shokuyoku.common.Statsd;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,15 +11,18 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.json.JSONObject;
 import software.amazon.ion.Timestamp;
 
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Properties;
 
-public class Worker {
-    public Worker() {
+public class Funnel {
+
+    public static void main(String[] args) {
         verifyEnvironment();
+        KafkaConsumer<String,byte[]> consumer;
+        HashMap<String, EventDriver> drivers = new HashMap<>();
+        long iterationTime = 0;
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
         Properties props = new Properties();
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
@@ -32,19 +32,17 @@ public class Worker {
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-        this.consumer = new KafkaConsumer<>(props);
-        this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
-        statsd = Statsd.getInstance();
-    }
+        consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+        StatsDClient statsd = Statsd.getInstance();
 
-    protected void start() {
         long currentOffset = 0;
         while (true) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
             for (ConsumerRecord<String,byte[]> record : records) {
-                if(this.iterationTime == 0 && !records.isEmpty()) {
-                    this.iterationTime = System.currentTimeMillis();
+                if(iterationTime == 0 && !records.isEmpty()) {
+                    iterationTime = System.currentTimeMillis();
                 }
                 Firehose f = new Firehose(record.value());
                 String eventName = f.getTopic();
@@ -68,13 +66,13 @@ public class Worker {
                     currentOffset = 0;
                     consumer.commitSync();
                 }
-                this.iterationTime = System.currentTimeMillis();
+                iterationTime = System.currentTimeMillis();
             }
             statsd.histogram("kafka.poll.size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
         }
     }
 
-    private void verifyEnvironment() {
+    private static void verifyEnvironment() {
         boolean missingEnv = false;
         if(System.getenv("KAFKA_SERVERS") == null) {
             System.out.println("KAFKA_SERVERS environment variable should contain a comma-separated list of kafka servers. e.g. localhost:9092,localhost:9093");
@@ -121,9 +119,4 @@ public class Worker {
             System.exit(1);
         }
     }
-
-    KafkaConsumer<String,byte[]> consumer;
-    HashMap<String, EventDriver> drivers = new HashMap<>();
-    long iterationTime = 0;
-    StatsDClient statsd;
 }

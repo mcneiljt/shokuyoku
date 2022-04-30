@@ -1,14 +1,16 @@
-package com.mcneilio.shokuyoku;
+package com.mcneilio.shokuyoku.faucet;
 
-import com.mcneilio.shokuyoku.format.Firehose;
+import com.mcneilio.shokuyoku.common.Firehose;
 import io.undertow.Undertow;
-import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.json.JSONObject;
 
 import java.util.Properties;
 
-public class Service {
-    public Service() {
+public class Faucet {
+    public static void main(String[] args) {
         verifyEnvironment();
         System.out.println("Shokuyoku will start listening for requests on: " + System.getenv("LISTEN_ADDR") + ":" + System.getenv("LISTEN_PORT"));
         Properties props = new Properties();
@@ -16,9 +18,7 @@ public class Service {
         props.put("acks", "all");
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
-        this.producer = new KafkaProducer<>(props);
-    }
-    protected void start() {
+        Producer<String, byte[]> producer = new KafkaProducer<>(props);
         Undertow server = Undertow.builder()
                 .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
                 .setHandler(httpServerExchange -> {
@@ -40,7 +40,7 @@ public class Service {
         server.start();
     }
 
-    private void verifyEnvironment() {
+    private static void verifyEnvironment() {
         boolean missingEnv = false;
         if(System.getenv("KAFKA_SERVERS") == null) {
             System.out.println("KAFKA_SERVERS environment variable should contain a comma-separated list of kafka servers. e.g. localhost:9092,localhost:9093");
@@ -63,5 +63,4 @@ public class Service {
             System.exit(1);
         }
     }
-    private final Producer<String, byte[]> producer;
 }

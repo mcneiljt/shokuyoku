@@ -1,10 +1,6 @@
-package com.mcneilio.shokuyoku.driver;
+package com.mcneilio.shokuyoku.funnel;
 
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.TypeDescription;
 import org.json.JSONObject;
-
-import java.util.ArrayList;
 
 public interface EventDriver {
 
