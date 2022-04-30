@@ -4,10 +4,7 @@ import com.mcneilio.shokuyoku.common.Firehose;
 import com.mcneilio.shokuyoku.common.JSONColumnFormat;
 import com.mcneilio.shokuyoku.common.Statsd;
 import com.timgroup.statsd.StatsDClient;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.*;
 import org.json.JSONObject;
 import software.amazon.ion.Timestamp;
 
@@ -20,20 +17,10 @@ public class Funnel {
 
     public static void main(String[] args) {
         verifyEnvironment();
-        KafkaConsumer<String,byte[]> consumer;
+        KafkaConsumer<String,byte[]> consumer = configureKafkaConsumer();
         HashMap<String, EventDriver> drivers = new HashMap<>();
         long iterationTime = 0;
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
-        Properties props = new Properties();
-        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
-        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
-        props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
-        consumer = new KafkaConsumer<>(props);
-        consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
         StatsDClient statsd = Statsd.getInstance();
 
         long currentOffset = 0;
@@ -70,6 +57,22 @@ public class Funnel {
             }
             statsd.histogram("kafka.poll.size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
         }
+    }
+
+    private static KafkaConsumer<String,byte[]> configureKafkaConsumer() {
+        KafkaConsumer<String,byte[]> consumer;
+        Properties props = new Properties();
+        props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
+        props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
+        props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+
+        return consumer;
     }
 
     private static void verifyEnvironment() {
