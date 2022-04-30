@@ -4,8 +4,12 @@ import java.util.regex.Pattern;
 
 public class StringNormalizer {
 
+    private static Pattern pattern0 = Pattern.compile("\\.");
+
+
     public static String normalizeKey(String key) {
-        return normalizeTopic(key).replaceAll("\\.","_");
+        return pattern0.matcher(normalizeTopic(key)).replaceAll("_");
+//        return normalizeTopic(key).replaceAll(,"_");
     }
 
     private static Pattern pattern1 = Pattern.compile("[^a-zA-Z\\d.]");
