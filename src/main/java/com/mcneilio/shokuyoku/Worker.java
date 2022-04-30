@@ -42,6 +42,8 @@ public class Worker {
         this.databaseName = System.getenv("HIVE_DATABASE");
         this.consumer = new KafkaConsumer<>(props);
         this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+        this.littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
+
         statsd = Statsd.getInstance();
     }
 
@@ -59,7 +61,7 @@ public class Worker {
                 if(this.iterationTime == 0 && !records.isEmpty()) {
                     this.iterationTime = System.currentTimeMillis();
                 }
-                Firehose f = new Firehose(record.value());
+                Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
                 JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getFlattened();
                 String date = msg.getString("timestamp").split("T")[0];
@@ -136,6 +138,7 @@ public class Worker {
         }
     }
 
+    private final boolean littleEndian;
     String databaseName;
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();

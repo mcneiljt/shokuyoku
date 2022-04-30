@@ -88,6 +88,8 @@ public class Filter {
 
         consumer.subscribe(Arrays.asList(System.getenv("KAFKA_INPUT_TOPIC")));
 
+        boolean littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
+
         HashMap<String, HashMap<String, Class>> schemaOverrides = new HashMap<>();
 
         // This is gross and I feel bad about it.
@@ -116,7 +118,7 @@ public class Filter {
             statsd.histogram("filter.batch_size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
 
             for (ConsumerRecord<String,byte[]> record : records) {
-                Firehose f = new Firehose(record.value());
+                Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
                 int hadDot = eventName.lastIndexOf(".");
                 if (hadDot >= 0)

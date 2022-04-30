@@ -32,7 +32,7 @@ public class FirehoseTest {
         long result = 0;
         for(int i=0; i<10; i++) {
             long timer = System.nanoTime();
-            new Firehose(arry);
+            new Firehose(arry, false);
             result += System.nanoTime() - timer;
         }
         long finalResult = result/10;
@@ -68,7 +68,7 @@ public class FirehoseTest {
         environmentVariables.set("ENDIAN", "little");
         environmentVariables.setup();
         Firehose firehoseMessage = new Firehose(testTopic, testMessage.toString());
-        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray());
+        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray(), false);
 
         assertThat(decodedMessage.getTopic()).isEqualTo("test_topic");
     }

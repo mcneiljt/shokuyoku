@@ -60,14 +60,14 @@ public class Firehose {
         this.byteArray = buffer.array();
     }
 
-    public Firehose(byte[] byteArray) {
+    public Firehose(byte[] byteArray, boolean littleEndian) {
         this.byteArray = byteArray;
 
 
         int topicLength = byteArray[1] & 0xff;
         int msgLength;
 
-        if (System.getenv("ENDIAN").equals("little")) // this should have a default
+        if (littleEndian) // this should have a default
             msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
                     ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
         else
