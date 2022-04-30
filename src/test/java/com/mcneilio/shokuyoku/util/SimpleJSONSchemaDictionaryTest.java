@@ -25,7 +25,6 @@ public class SimpleJSONSchemaDictionaryTest {
 
         assertThat(jsonSchemaDictionary.getEventJSONSchema("test_event").hasColumn("context_field_one", "ASD")).isEqualTo(new Boolean(true));
         assertThat(jsonSchemaDictionary.getEventJSONSchema("test_event").hasColumn("context_field_one", 1)).isEqualTo(new Boolean(true));
-
     }
 
     private JSONSchemaDictionary getTestJSON()  {

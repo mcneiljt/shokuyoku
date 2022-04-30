@@ -7,6 +7,9 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * This StorageDriver implementation uploads files to s3.
+ */
 public class S3StorageDriver implements StorageDriver{
 
 

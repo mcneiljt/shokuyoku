@@ -33,7 +33,7 @@ public class JSONColumnFormatFilterBenchmark {
         long startTime = System.currentTimeMillis();
         for(int i=0; i<100000;i++){
             JSONObject eventJson = new JSONObject(eventText);
-            JSONColumnFormat jsonColumnFormat= new JSONColumnFormat(eventJson);
+            JSONColumnFormat jsonColumnFormat = new JSONColumnFormat(eventJson);
             jsonColumnFormat.getCopy(eventTypeJSONSchema.getJSONColumnFormatFilter(), true, Collections.singleton("properties"));
            // return new JSONColumnFormat(eventJson);
         }

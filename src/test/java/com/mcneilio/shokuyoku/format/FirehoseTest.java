@@ -60,7 +60,7 @@ public class FirehoseTest {
     }
 
     @Test
-    public void firehoseCanSerializeAndDeserializeLittleEndian() {
+    public void firehoseCanSerializeAndDeserializeLittleEndian() throws Exception {
         String testTopic = "testTopic";
         JSONObject testMessage = new JSONObject();
 

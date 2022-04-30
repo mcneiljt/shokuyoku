@@ -142,5 +142,4 @@ public class Worker {
     long iterationTime = 0;
     StatsDClient statsd;
     private final HiveDescriptionProvider descriptionProvider;
-
 }

@@ -27,6 +27,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
 
+/**
+ * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
+ * is reached, the ORC file is sent to the storageDriver.
+ */
 public class BasicEventDriver implements EventDriver {
 
     public BasicEventDriver(String eventName, String date, TypeDescription typeDescription, StorageDriver storageDriver) {
@@ -36,11 +40,10 @@ public class BasicEventDriver implements EventDriver {
         this.schema = typeDescription;
 
         // TODO This env vars should probably be pulled out.
-        this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") !=null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
+        this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") != null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
         setColumns();
         nullColumnsV2();
         this.statsd = Statsd.getInstance();
-
     }
 
     @Override
