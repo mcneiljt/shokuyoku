@@ -1,9 +1,7 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.mcneilio.shokuyoku.format.Firehose;
-import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.json.JSONObject;
 import org.junit.Rule;
 import org.junit.Test;
