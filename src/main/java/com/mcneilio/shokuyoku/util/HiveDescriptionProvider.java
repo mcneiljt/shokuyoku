@@ -26,25 +26,6 @@ public class HiveDescriptionProvider extends MemoryDescriptionProvider {
         }
     }
 
-    public static TypeDescription getTypeDescriptionByString(String typeDescriptionString){
-        if(typeDescriptionString.equals("string")) {
-            return TypeDescription.createString();
-        } else if(typeDescriptionString.equals("boolean")) {
-            return TypeDescription.createBoolean();
-        }  else if(typeDescriptionString.equals("timestamp")) {
-            return TypeDescription.createTimestamp();
-        } else if(typeDescriptionString.equals("bigint")) {
-            return TypeDescription.createLong();
-        } else if(typeDescriptionString.equals("date")) {
-            return TypeDescription.createDate();
-        } else if(typeDescriptionString.equals("array<string>")) {
-            // TODO figure out this mapping
-        } else {
-            System.out.println("Failed to resolve schema field type.");
-        }
-        return null;
-    }
-
     public  TypeDescription getInstance(String databaseName, String eventName) {
         TypeDescription typeDescription = super.getInstance(databaseName, eventName);
         if (typeDescription!=null){
@@ -57,7 +38,7 @@ public class HiveDescriptionProvider extends MemoryDescriptionProvider {
             List<FieldSchema> a = hiveMetaStoreClient.getSchema(databaseName, tableName);
             TypeDescription td=  TypeDescription.createStruct();
             for(FieldSchema fieldSchma : a){
-                TypeDescription fieldTypeDescription = getTypeDescriptionByString(fieldSchma.getType());
+                TypeDescription fieldTypeDescription = TypeDescription.fromString(fieldSchma.getType());
                 if(fieldTypeDescription!=null) {
                     td.addField(fieldSchma.getName(), fieldTypeDescription);
                 }

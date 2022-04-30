@@ -23,23 +23,9 @@ public class JSONSchemaDictionary {
             columns.keySet().forEach(new Consumer<String>() {
                 @Override
                 public void accept(String columnName) {
-                    Class type = columns.get(columnName);
-                    if (type.equals(Double.class)){
-                        HashSet<Class> allowedTypes = new HashSet(Arrays.asList(new Class[] {Integer.class, Long.class, Double.class, BigDecimal.class}));
-                        if (allowInvalidCoercions) {
-                            allowedTypes.addAll(Arrays.asList(new Class[] {String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class}));
-                        }
+                    HashSet<Class> allowedTypes = ShokuyokuTypes.getCompatibleTypes(columns.get(columnName), allowInvalidCoercions);
+                    if(allowedTypes!=null){
                         flattenedMap.put(columnName, allowedTypes);
-                    } else if(type.equals(Boolean.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Boolean.class})));
-                    } else if(type.equals(String.class)){
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String.class, Integer.class,Long.class, BigDecimal.class, Double.class, Boolean.class, String[].class, Integer[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class})));
-                    } else if(type.equals(String[].class)) {
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {String[].class, Integer[].class, Long[].class, BigDecimal[].class, Double[].class, Boolean[].class, Array.class, String.class, Integer.class, Long.class, BigDecimal.class, Double.class, Boolean.class})));
-                    } else if(type.equals(Double[].class)) {
-                        flattenedMap.put(columnName, new HashSet(Arrays.asList(new Class[] {Integer[].class, BigDecimal[].class, Double[].class, Long[].class, Array.class})));
-                    } else {
-                        System.out.println("Issue");
                     }
                 }
             });

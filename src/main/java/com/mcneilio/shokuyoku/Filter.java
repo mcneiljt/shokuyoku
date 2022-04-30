@@ -4,6 +4,7 @@ import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import com.mcneilio.shokuyoku.util.JSONSchemaDictionary;
 import com.mcneilio.shokuyoku.util.OrcJSONSchemaDictionary;
+import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
 import com.mcneilio.shokuyoku.util.Statsd;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -96,8 +97,9 @@ public class Filter {
             for(String eventTypeName: schemaOverridesEnv.keySet()) {
                 for(String columnName: ((JSONObject)schemaOverridesEnv.get(eventTypeName)).keySet()) {
                     String columnType = ((JSONObject)schemaOverridesEnv.get(eventTypeName)).getString(columnName);
-                    if (columnType.equals("string")){
-                        columns.put(columnName, String.class);
+                    Class c = ShokuyokuTypes.getOrcJsonType(columnType);
+                    if(c!=null) {
+                        columns.put(columnName, c);
                     }
                 }
                 schemaOverrides.put(eventTypeName, columns);

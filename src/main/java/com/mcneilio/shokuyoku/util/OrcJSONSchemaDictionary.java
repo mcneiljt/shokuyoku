@@ -50,7 +50,7 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
                         for (FieldSchema fieldSchema : a) {
                             addPrefixes(fieldSchema.getName(), prefixes);
-                            columns.put(fieldSchema.getName(), getOrcJsonType(fieldSchema.getType()));
+                            columns.put(fieldSchema.getName(), ShokuyokuTypes.getOrcJsonType(fieldSchema.getType()));
                         }
 
                         if(schemaOverrides!=null && schemaOverrides.containsKey(tableName)){
@@ -88,42 +88,6 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
             prefixes.add(base);
 
             leadingUnderscore=false;
-        }
-    }
-
-    private static Class getOrcJsonType(String orcType) {
-        if (orcType.startsWith("array<")) {
-            String tmp = orcType.substring(6, orcType.length() - 1);
-            return Array.newInstance(getOrcJsonType(tmp), 0).getClass();
-        } else if (orcType.equals("tinyint")) {
-            return Double.class;
-        } else if (orcType.equals("smallint")) {
-            return Double.class;
-        } else if (orcType.equals("int")) {
-            return Double.class;
-        } else if (orcType.equals("bigint")) {
-            return Double.class;
-        }
-
-        // decimal types
-        else if (orcType.equals("float")) {
-            return Double.class;
-        } else if (orcType.equals("double")) {
-            return Double.class;
-        } else if (orcType.startsWith("decimal(")) {
-            return Double.class;
-        }
-
-        // string types
-        else if (orcType.equals("string") || orcType.equals("timestamp") || orcType.equals("date")) {
-            return String.class;
-        } else if (orcType.startsWith("varchar(")) {
-            return String.class;
-        } else if (orcType.equals("boolean")) {
-            return Boolean.class;
-        } else {
-            System.out.println("Unsupported Column Type: " + orcType);
-            return null;
         }
     }
 }
