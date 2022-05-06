@@ -37,6 +37,20 @@ public class ShokuyokuTypes {
             return null;
         }
     }
+
+    public static String getOrcStringForClass(Class type){
+        if (type.equals(Double.class)){
+            return "double";
+        } else if (type.equals(String.class)){
+            return "string";
+        } else if (type.equals(Integer.class)){
+            return "int";
+        }   else {
+            System.out.println("Unsupported Column Type: " + type);
+            return null;
+        }
+    }
+
     public static HashSet getCompatibleTypes(Class type, boolean allowInvalidCoercions){
         if (type.equals(Double.class)){
             HashSet<Class> allowedTypes = new HashSet(Arrays.asList(new Class[] {Integer.class, Long.class, Double.class, BigDecimal.class}));

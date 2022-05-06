@@ -2,9 +2,14 @@ package com.mcneilio.shokuyoku;
 
 import com.mcneilio.shokuyoku.format.Firehose;
 import io.undertow.Undertow;
+import io.undertow.server.handlers.proxy.LoadBalancingProxyClient;
+import io.undertow.server.handlers.proxy.ProxyHandler;
+import io.undertow.util.HttpString;
 import org.apache.kafka.clients.producer.*;
 import org.json.JSONObject;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Properties;
 
 public class Service {
@@ -18,14 +23,27 @@ public class Service {
         props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         this.producer = new KafkaProducer<>(props);
     }
-    protected void start() {
+    protected void start() throws URISyntaxException {
+        LoadBalancingProxyClient loadBalancer = new LoadBalancingProxyClient()
+            .addHost(new URI("http://localhost:3000"))
+            .setConnectionsPerThread(20);
+        ProxyHandler pr = ProxyHandler.builder().setProxyClient(loadBalancer).setMaxRequestTime( 30000).build();
+
         Undertow server = Undertow.builder()
                 .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
                 .setHandler(httpServerExchange -> {
+
+                    if(httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
+                        pr.handleRequest(httpServerExchange);
+                        return;
+                    }
+
+                    String kafkaTopic = System.getenv("SERVICE_KAFKA_TOPIC") != null ? System.getenv("SERVICE_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
+
                     httpServerExchange.getRequestReceiver().receiveFullString((httpServerExchange1, s) -> {
                         JSONObject rq = new JSONObject(s);
                         Firehose f = new Firehose(rq.getString("event"), s);
-                        producer.send(new ProducerRecord<>(System.getenv("KAFKA_TOPIC"), f.getByteArray()),
+                        producer.send(new ProducerRecord<>(kafkaTopic, f.getByteArray()),
                                 (recordMetadata, e) -> {
                                     if( e != null ) {
                                         System.out.println("Error producing kafka record.");
@@ -46,7 +64,7 @@ public class Service {
             System.out.println("KAFKA_SERVERS environment variable should contain a comma-separated list of kafka servers. e.g. localhost:9092,localhost:9093");
             missingEnv = true;
         }
-        if(System.getenv("KAFKA_TOPIC") == null) {
+        if(System.getenv("KAFKA_TOPIC") == null && System.getenv("SERVICE_KAFKA_TOPIC")==null) {
             System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
         }

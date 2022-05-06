@@ -85,7 +85,6 @@ public class JSONColumnFormat {
                 }
             } else if (obj.get(key) instanceof JSONArray) {
                 if (!filter.filterColumn(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
-                    //JSONArray arr = flatten(dest, (JSONArray) obj.get(key), prefix + normalizedKey, filter, shouldFlatten);
                     dest.put(shouldFlatten ? normalizedFullKey : key, obj.get(key));
                 }
             } else {
@@ -96,12 +95,14 @@ public class JSONColumnFormat {
         });
 
         hoistFields.forEach(key -> {
-            if(shouldFlatten) {
-                flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
-            } else if (obj.has(key)){
-                JSONObject subDest = new JSONObject();
-                dest.put(key, subDest);
-                flatten(subDest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+            if(obj.has(key)) {
+                if (shouldFlatten) {
+                    flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+                } else if (obj.has(key)) {
+                    JSONObject subDest = new JSONObject();
+                    dest.put(key, subDest);
+                    flatten(subDest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+                }
             }
         });
     }

@@ -11,6 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+
+// was 5300 ish
 public class JSONColumnFormatFilterBenchmark {
     @Test
     public void flattenDoesNotContainTopLevelObjects() throws Exception {

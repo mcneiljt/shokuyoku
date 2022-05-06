@@ -59,7 +59,7 @@ public class Filter {
         }
     }
 
-    public static void main(String[] args){
+    public  void start() {
         verifyEnvironment();
         System.out.println("Shokuyoku filter will start processing requests from topic: " + System.getenv("KAFKA_INPUT_TOPIC")+ " and output to: " + System.getenv("KAFKA_OUTPUT_TOPIC"));
 
