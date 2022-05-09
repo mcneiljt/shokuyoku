@@ -1,15 +1,34 @@
 package com.mcneilio.shokuyoku;
 
+import com.google.gson.Gson;
 import com.mcneilio.shokuyoku.format.Firehose;
+import com.mcneilio.shokuyoku.model.CreateTableRequest;
+import com.mcneilio.shokuyoku.model.EventType;
+import com.mcneilio.shokuyoku.model.EventTypeColumn;
+import com.mcneilio.shokuyoku.util.DBUtil;
+import com.mcneilio.shokuyoku.util.HiveConnector;
+import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
+import io.undertow.Handlers;
 import io.undertow.Undertow;
+import io.undertow.server.HttpHandler;
+import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.proxy.LoadBalancingProxyClient;
 import io.undertow.server.handlers.proxy.ProxyHandler;
+import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
+import io.undertow.util.PathTemplateMatch;
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.kafka.clients.producer.*;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
 import org.json.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class Service {
@@ -23,17 +42,131 @@ public class Service {
         props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         this.producer = new KafkaProducer<>(props);
     }
+
     protected void start() throws URISyntaxException {
         LoadBalancingProxyClient loadBalancer = new LoadBalancingProxyClient()
-            .addHost(new URI("http://localhost:3000"))
+            .addHost(new URI("http://localhost:3005"))
             .setConnectionsPerThread(20);
-        ProxyHandler pr = ProxyHandler.builder().setProxyClient(loadBalancer).setMaxRequestTime( 30000).build();
+        ProxyHandler pr = ProxyHandler.builder().setProxyClient(loadBalancer).setMaxRequestTime(30000).build();
+
+        HiveConnector hive = HiveConnector.getConnector();
+
+        Gson gson = new Gson();
+
+        SessionFactory sessionFactory = DBUtil.getSessionFactory();
 
         Undertow server = Undertow.builder()
-                .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
-                .setHandler(httpServerExchange -> {
+            .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
+            .setHandler(Handlers.path().addPrefixPath("/types", Handlers.routing()
+                .get("/", exchange -> {
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(gson.toJson(ShokuyokuTypes.getSupportedTypeStrings()));
+                    exchange.getResponseSender().close();
+                })
+            ).addPrefixPath("/deltas", Handlers.routing().get("/event_type", exchange -> {
 
-                    if(httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
+                Query q = sessionFactory.openSession().createQuery("select et from EventType et", EventType.class);
+                List<EventType> list = q.list();
+
+                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                exchange.getResponseSender().send(gson.toJson(list));
+                exchange.getResponseSender().close();
+            }).get("/event_type/{name}", exchange -> {
+                String eventType = exchange.getQueryParameters().get("name").getFirst().toString();
+                Query q = sessionFactory.openSession().createQuery("select et from EventTypeColumn et where et.name.eventType = :event_type", EventTypeColumn.class);
+                q.setParameter("event_type", eventType);
+                List<EventType> list = q.list();
+
+                exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                exchange.getResponseSender().send(gson.toJson(list));
+                exchange.getResponseSender().close();
+            })).addPrefixPath("/schemas", Handlers.routing()
+                .get("/", exchange -> {
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(hive.listDatabases());
+                    exchange.getResponseSender().close();
+                })
+                .get("/{database}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(hive.listTables(params.getParameters().get("database")) + "\n");
+                    exchange.getResponseSender().close();
+                })
+                .post("/{database}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                        hive.addTable(params.getParameters().get("db"), new String(m));
+                    });
+                    exchange.getResponseSender().close();
+                })
+                .get("/{database}/{tableName}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    if (!params.getParameters().get("tableName").isEmpty()) {
+                        String tableStr = hive.getTable(params.getParameters().get("database"), params.getParameters().get("tableName")) + "\n";
+                        if (tableStr!=null)
+                        exchange.getResponseSender().send(tableStr);
+                        else {
+                            exchange.setStatusCode(404);
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                            exchange.getResponseSender().send("{}");
+                            exchange.getResponseSender().close();
+                        }
+                    }
+                    else
+                        exchange.getResponseSender().send("{}\n");
+                    exchange.getResponseSender().close();
+                })
+                .post("/{database}/{tableName}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                        CreateTableRequest asd = gson.fromJson(new String(m), CreateTableRequest.class);
+
+                        Table tbl = new Table();
+                        tbl.setDbName(params.getParameters().get("database"));
+                        tbl.setTableName(asd.getName());
+                        tbl.setTableType("EXTERNAL_TABLE");
+
+                        List<FieldSchema> partitionFieldSchemas = new ArrayList<>();
+                        for (CreateTableRequest.PartitionKey partitionKey : asd.getPartitionedBy()) {
+                            FieldSchema fieldSchema = new FieldSchema();
+                            fieldSchema.setName(partitionKey.getColumnName());
+                            fieldSchema.setType(partitionKey.getType());
+                            partitionFieldSchemas.add(fieldSchema);
+                        }
+
+                        tbl.setPartitionKeys(partitionFieldSchemas);
+
+                        StorageDescriptor sd = new StorageDescriptor();
+                        sd.setInputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
+                        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
+
+                        sd.setLocation(asd.getLocation());
+
+                        tbl.setSd(sd);
+
+                        hive.addTable(tbl);
+
+//                        hive.updateTable(params.getParameters().get("database"),
+//                            params.getParameters().get("tableName"), new String(m));
+                    });
+                    exchange.getResponseSender().send("might have accepted it" + "\n");
+                    exchange.getResponseSender().close();
+                })
+                .put("/{database}/{tableName}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                        hive.updateTable(params.getParameters().get("database"),
+                            params.getParameters().get("tableName"), new String(m));
+                    });
+                    exchange.getResponseSender().send("might have accepted it" + "\n");
+                    exchange.getResponseSender().close();
+                })).addPrefixPath("/", new HttpHandler() {
+                @Override
+                public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {
+                    if (httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
                         pr.handleRequest(httpServerExchange);
                         return;
                     }
@@ -44,42 +177,44 @@ public class Service {
                         JSONObject rq = new JSONObject(s);
                         Firehose f = new Firehose(rq.getString("event"), s);
                         producer.send(new ProducerRecord<>(kafkaTopic, f.getByteArray()),
-                                (recordMetadata, e) -> {
-                                    if( e != null ) {
-                                        System.out.println("Error producing kafka record.");
-                                        e.printStackTrace();
-                                    } else {
-                                        System.out.println("Kafka record produced.");
-                                    }
-                                });
+                            (recordMetadata, e) -> {
+                                if (e != null) {
+                                    System.out.println("Error producing kafka record.");
+                                    e.printStackTrace();
+                                } else {
+                                    System.out.println("Kafka record produced.");
+                                }
+                            });
                     });
-                    httpServerExchange.setStatusCode(202);
-                }).build();
+                }
+            }))
+            .build();
         server.start();
     }
 
     private void verifyEnvironment() {
         boolean missingEnv = false;
-        if(System.getenv("KAFKA_SERVERS") == null) {
+        if (System.getenv("KAFKA_SERVERS") == null) {
             System.out.println("KAFKA_SERVERS environment variable should contain a comma-separated list of kafka servers. e.g. localhost:9092,localhost:9093");
             missingEnv = true;
         }
-        if(System.getenv("KAFKA_TOPIC") == null && System.getenv("SERVICE_KAFKA_TOPIC")==null) {
+        if (System.getenv("KAFKA_TOPIC") == null && System.getenv("SERVICE_KAFKA_TOPIC") == null) {
             System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
         }
-        if(System.getenv("LISTEN_ADDR") == null) {
+        if (System.getenv("LISTEN_ADDR") == null) {
             System.out.println("LISTEN_ADDR environment variable should contain the address to listen on. e.g. localhost");
             missingEnv = true;
         }
-        if(System.getenv("LISTEN_PORT") == null) {
+        if (System.getenv("LISTEN_PORT") == null) {
             System.out.println("LISTEN_PORT environment variable should contain the port to listen on e.g. 8080");
             missingEnv = true;
         }
-        if(missingEnv) {
+        if (missingEnv) {
             System.out.println("Missing required environment variable(s); exiting.");
             System.exit(1);
         }
     }
+
     private final Producer<String, byte[]> producer;
 }

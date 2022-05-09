@@ -5,10 +5,7 @@ import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import com.mcneilio.shokuyoku.model.EventError;
 import com.mcneilio.shokuyoku.model.EventType;
 import com.mcneilio.shokuyoku.model.EventTypeColumn;
-import com.mcneilio.shokuyoku.util.JSONSchemaDictionary;
-import com.mcneilio.shokuyoku.util.OrcJSONSchemaDictionary;
-import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
-import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.util.*;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -17,7 +14,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
-import org.hibernate.cfg.Configuration;
 import org.json.JSONObject;
 
 import java.sql.Timestamp;
@@ -43,15 +39,9 @@ public class ErrorWorker {
     }
 
     public void start(){
-        Properties cfg = new Properties();
-        cfg.setProperty("hibernate.connection.url", System.getenv("DATABASE_URL"));
-        cfg.setProperty("hibernate.hbm2ddl.auto", "validate");
 
-        SessionFactory sessionFactory = new  Configuration().addProperties(cfg).
-            addAnnotatedClass(EventError.class).
-            addAnnotatedClass(EventType.class).
-            addAnnotatedClass(EventTypeColumn.class).
-            buildSessionFactory();
+
+        SessionFactory sessionFactory = DBUtil.getSessionFactory();
 
         Properties props = new Properties();
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));

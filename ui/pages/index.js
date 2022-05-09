@@ -2,7 +2,17 @@ import Head from 'next/head'
 import Image from 'next/image'
 import styles from '../styles/Home.module.css'
 
-export default function Home() {
+export async function getServerSideProps(context) {
+    const databases = await fetch("http://localhost:3004/schemas").then(response => response.json())
+
+    return {
+        props: {databases}, // will be passed to the page component as props
+    }
+}
+
+
+export default function Home({databases}) {
+    console.log('props', arguments)
   return (
     <div className={styles.container}>
       <Head>
@@ -15,6 +25,12 @@ export default function Home() {
         <h1 className={styles.title}>
           Welcome to <a href="https://nextjs.org">Next.js!</a>
         </h1>
+
+          <ul>
+              {databases.map(function(databaseName){
+                  return <li><a href={`/database/${encodeURIComponent(databaseName)}`}>{databaseName}</a></li>
+              })}
+          </ul>
 
         <p className={styles.description}>
           Get started by editing{' '}

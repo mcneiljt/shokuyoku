@@ -1,12 +1,16 @@
 <configuration>
   <property>
     <name>metastore.thrift.uris</name>
-    <value>thrift://0.0.0.0:9083</value>
+    <value>thrift://localhost:9083</value>
     <description>Thrift URI for the remote metastore. Used by metastore client to connect to remote metastore.</description>
   </property>
-  <property>
+<!--  <property>
     <name>metastore.task.threads.always</name>
     <value>org.apache.hadoop.hive.metastore.events.EventCleanerTask,org.apache.hadoop.hive.metastore.MaterializationsCacheCleanerTask</value>
+  </property> -->
+  <property>
+    <name>metastore.task.threads.always</name>
+    <value>org.apache.hadoop.hive.metastore.events.EventCleanerTask</value>
   </property>
   <property>
     <name>metastore.expression.proxy</name>
@@ -14,7 +18,7 @@
   </property>
   <property>
     <name>metastore.warehouse.dir</name>
-    <value>s3a://spark/warehouse/</value>
+    <value>s3a://analytics/warehouse/</value>
   </property>
   <property>
     <name>javax.jdo.option.ConnectionDriverName</name>
@@ -38,11 +42,11 @@
 
   <property>
     <name>fs.s3a.access.key</name>
-    <value>AKIAIOSFODNN7EXAMPLE</value>
+    <value>JrEXkCifdrHAjSAkWuB</value>
   </property>
   <property>
     <name>fs.s3a.secret.key</name>
-    <value>wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY</value>
+    <value>uhnzpNZhMTkdijYPDDx</value>
   </property>
   <property>
     <name>fs.s3a.endpoint</name>

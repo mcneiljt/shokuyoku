@@ -10,6 +10,10 @@ import java.util.HashSet;
 
 public class ShokuyokuTypes {
 
+    public static String[] getSupportedTypeStrings() {
+        return new String[] {"array<","tinyint", "smallint", "int","bigint","float","double", "decimal", "string", "timestamp",  "date", "varchar", "boolean"};
+    }
+
     public static Class getOrcJsonType(String orcType) {
         if (orcType.startsWith("array<")) {
             String tmp = orcType.substring(6, orcType.length() - 1);

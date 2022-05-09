@@ -14,7 +14,7 @@ public class EventTypeColumn {
 
         public EventTypeColumnKey() {}
 
-        public EventTypeColumnKey(String name, String eventType) {
+        public EventTypeColumnKey(String eventType, String name) {
             this.name = name;
             this.eventType = eventType;
         }
@@ -24,6 +24,22 @@ public class EventTypeColumn {
 
         @Column(name = "event_type",  nullable = false)
         private String eventType;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getEventType() {
+            return eventType;
+        }
+
+        public void setEventType(String eventType) {
+            this.eventType = eventType;
+        }
     }
 
     public EventTypeColumn() {}

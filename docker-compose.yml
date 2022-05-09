@@ -57,7 +57,7 @@ services:
             - minio
         environment:
             HADOOP_HOME: /opt/hadoop-3.3.2
-            HIVE_HOME: /opt/apache-hive-metastore-3.0.0-bin
+            HIVE_HOME: /opt/apache-hive-3.2.1-bin
     mariadb:
         image: docker.io/mariadb:latest
         command:  --skip-grant-tables --init-file /init.sql
