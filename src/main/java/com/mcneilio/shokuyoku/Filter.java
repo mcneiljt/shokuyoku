@@ -90,8 +90,15 @@ public class Filter {
 
         boolean littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
 
-        HashMap<String, HashMap<String, Class>> schemaOverrides = new HashMap<>();
 
+        Set<String> dropEvents = null;
+        if (System.getenv("DROP_EVENT_TOPICS") !=null) {
+            for(String eventTopic: System.getenv("DROP_EVENT_TOPICS").split(",") ){
+                dropEvents.add(eventTopic.trim());
+            }
+        }
+
+        HashMap<String, HashMap<String, Class>> schemaOverrides = new HashMap<>();
         // This is gross and I feel bad about it.
         if (System.getenv("SCHEMA_OVERRIDES") != null){
             JSONObject schemaOverridesEnv = new JSONObject(System.getenv("SCHEMA_OVERRIDES"));
@@ -124,11 +131,16 @@ public class Filter {
                 if (hadDot >= 0)
                     eventName =eventName.substring(hadDot + 1);
 
+                if (dropEvents!=null && dropEvents.contains(eventName)) {
+                    statsd.increment("filter.drop_override", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
+                    continue;
+                }
+
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
+
                 if (eventTypeJSONSchema == null) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
-                    statsd.increment("filter.skipped", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"similar:false","topic:"+eventName});
-
+                    statsd.increment("filter.skipped", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                     continue;
                 }
                 JSONColumnFormat.JSONColumnFormatFilter filter =  eventTypeJSONSchema.getJSONColumnFormatFilter();

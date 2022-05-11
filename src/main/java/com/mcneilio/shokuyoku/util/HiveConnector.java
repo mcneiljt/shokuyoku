@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.*;
+import org.apache.thrift.TException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +99,10 @@ public class HiveConnector {
             System.exit(1);
             return null;
         }
+    }
+
+    public void updateTable(String db, String tableName, Table tbl) throws TException {
+        client.alter_table(db, tableName, tbl);
     }
 
     public String updateTable(String db, String tableName, String tbl) {

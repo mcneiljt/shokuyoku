@@ -17,9 +17,7 @@ import io.undertow.server.handlers.proxy.ProxyHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
 import io.undertow.util.PathTemplateMatch;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.kafka.clients.producer.*;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
@@ -27,9 +25,7 @@ import org.json.JSONObject;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 
 public class Service {
     public Service() {
@@ -121,48 +117,36 @@ public class Service {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
-                        CreateTableRequest asd = gson.fromJson(new String(m), CreateTableRequest.class);
+                        CreateTableRequest createTableRequest = gson.fromJson(new String(m), CreateTableRequest.class);
 
-                        Table tbl = new Table();
-                        tbl.setDbName(params.getParameters().get("database"));
-                        tbl.setTableName(asd.getName());
-                        tbl.setTableType("EXTERNAL_TABLE");
+                       Table tbl = createTableRequest.toHiveTable(params.getParameters().get("database"));
 
-                        List<FieldSchema> partitionFieldSchemas = new ArrayList<>();
-                        for (CreateTableRequest.PartitionKey partitionKey : asd.getPartitionedBy()) {
-                            FieldSchema fieldSchema = new FieldSchema();
-                            fieldSchema.setName(partitionKey.getColumnName());
-                            fieldSchema.setType(partitionKey.getType());
-                            partitionFieldSchemas.add(fieldSchema);
+                        try {
+                            hive.addTable(tbl);
+                        } catch(Exception ex){
+                            System.out.println("ASD");
                         }
-
-                        tbl.setPartitionKeys(partitionFieldSchemas);
-
-                        StorageDescriptor sd = new StorageDescriptor();
-                        sd.setInputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
-                        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
-
-                        sd.setLocation(asd.getLocation());
-
-                        tbl.setSd(sd);
-
-                        hive.addTable(tbl);
-
-//                        hive.updateTable(params.getParameters().get("database"),
-//                            params.getParameters().get("tableName"), new String(m));
+                        exchange.getResponseSender().send("might have accepted it" + "\n");
+                        exchange.getResponseSender().close();
                     });
-                    exchange.getResponseSender().send("might have accepted it" + "\n");
-                    exchange.getResponseSender().close();
+
                 })
                 .put("/{database}/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
-                        hive.updateTable(params.getParameters().get("database"),
-                            params.getParameters().get("tableName"), new String(m));
+                        CreateTableRequest createTableRequest = gson.fromJson(new String(m), CreateTableRequest.class);
+
+                        Table tbl = createTableRequest.toHiveTable(params.getParameters().get("database"));
+
+                        try {
+                            hive.updateTable(params.getParameters().get("database"),params.getParameters().get("tableName"), tbl);
+                        } catch(Exception ex){
+                            System.out.println("ASD");
+                        }
+                        exchange.getResponseSender().send("might have accepted it" + "\n");
+                        exchange.getResponseSender().close();
                     });
-                    exchange.getResponseSender().send("might have accepted it" + "\n");
-                    exchange.getResponseSender().close();
                 })).addPrefixPath("/", new HttpHandler() {
                 @Override
                 public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {

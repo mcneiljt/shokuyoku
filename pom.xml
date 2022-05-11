@@ -30,6 +30,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.3.5</version>
+    </dependency>
+    <dependency>
       <groupId>org.hibernate.orm</groupId>
       <artifactId>hibernate-core</artifactId>
       <version>6.0.0.Final</version>
@@ -160,6 +165,11 @@
       <artifactId>httpclient</artifactId>
       <version>4.5.13</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>31.1-jre</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -209,7 +219,7 @@
             <configuration>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.mcneilio.shokuyoku.Dispatcher</mainClass>
+                  <mainClass>com.mcneilio.shokuyoku.App</mainClass>
                 </transformer>
               </transformers>
             </configuration>

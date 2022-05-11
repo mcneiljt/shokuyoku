@@ -44,9 +44,10 @@ public class EventTypeColumn {
 
     public EventTypeColumn() {}
 
-    public EventTypeColumn(EventTypeColumnKey name, String type) {
+    public EventTypeColumn(EventTypeColumnKey name, String type, Timestamp lastError) {
         this.name = name;
         this.type = type;
+        this.lastError = lastError;
     }
 
     @EmbeddedId

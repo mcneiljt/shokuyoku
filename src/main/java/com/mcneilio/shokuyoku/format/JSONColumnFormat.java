@@ -68,7 +68,7 @@ public class JSONColumnFormat {
             String normalizedFullKey = prefix + normalizedKey;
 
             if (obj.get(key) instanceof JSONObject) {
-                if(hoistFields.contains(key)){
+                if(hoistFields.contains(key) && obj.get(key) instanceof JSONObject){
                     return;
                 }
                 // Keeping the _ at the end of prefix makes it so we can have an empty prefix
@@ -95,7 +95,7 @@ public class JSONColumnFormat {
         });
 
         hoistFields.forEach(key -> {
-            if(obj.has(key)) {
+            if(obj.has(key) && obj.get(key) instanceof JSONObject) {
                 if (shouldFlatten) {
                     flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
                 } else if (obj.has(key)) {
