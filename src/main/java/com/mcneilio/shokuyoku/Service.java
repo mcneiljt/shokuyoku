@@ -113,6 +113,26 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
+                .delete("/{database}/{tableName}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    if (!params.getParameters().get("tableName").isEmpty()) {
+                        hive.deleteTable(params.getParameters().get("database"), params.getParameters().get("tableName"));
+                    }
+                    else
+                        exchange.getResponseSender().send("{}\n");
+                    exchange.getResponseSender().close();
+                })
+                .delete("/{database}/{tableName}/column/{columnName}", exchange -> {
+                    PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                    exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                    if (!params.getParameters().get("tableName").isEmpty() && !params.getParameters().get("columnName").isEmpty()) {
+                        hive.dropColumns(params.getParameters().get("database"), params.getParameters().get("tableName"), new String[]{params.getParameters().get("columnName")});
+                    }
+                    else
+                        exchange.getResponseSender().send("{}\n");
+                    exchange.getResponseSender().close();
+                })
                 .post("/{database}/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");

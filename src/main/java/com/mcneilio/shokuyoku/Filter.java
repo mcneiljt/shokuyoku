@@ -93,6 +93,7 @@ public class Filter {
 
         Set<String> dropEvents = null;
         if (System.getenv("DROP_EVENT_TOPICS") !=null) {
+            dropEvents = new HashSet<>();
             for(String eventTopic: System.getenv("DROP_EVENT_TOPICS").split(",") ){
                 dropEvents.add(eventTopic.trim());
             }

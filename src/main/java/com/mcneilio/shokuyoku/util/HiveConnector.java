@@ -6,8 +6,7 @@ import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.thrift.TException;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class HiveConnector {
     private static HiveConnector connector = null;
@@ -115,6 +114,23 @@ public class HiveConnector {
             System.exit(1);
         }
         return "";
+    }
+
+    public void deleteTable(String db, String tableName) throws TException {
+        client.dropTable(db, tableName);
+    }
+
+    public void dropColumns(String db, String tableName, String[] columnNames) throws TException {
+        Set<String> columnNameSet = new HashSet<>(Arrays.asList(columnNames));
+        Table tbl = client.getTable(db, tableName);
+
+        List<FieldSchema> asd=  tbl.getSd().getCols();
+        for(int i=0;i<asd.size();i++){
+            if(columnNameSet.contains(asd.get(i).getName())) {
+                asd.remove(i--);
+            }
+        }
+        client.alter_table(db, tableName, tbl);
     }
 
     private HiveMetaStoreClient client;
