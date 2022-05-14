@@ -1,0 +1,72 @@
+version: "3.9"
+services:
+    zookeeper:
+        image: docker.io/confluentinc/cp-zookeeper:7.0.1
+        container_name: zookeeper
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+
+    broker:
+        image: docker.io/confluentinc/cp-kafka:7.0.1
+        container_name: broker
+        ports:
+            # To learn about configuring Kafka for access across networks see
+            # https://www.confluent.io/blog/kafka-client-cannot-connect-to-broker-on-aws-on-docker-etc/
+            - "9092:9092"
+        depends_on:
+            - zookeeper
+        environment:
+            KAFKA_BROKER_ID: 1
+            KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:29092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+            KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    minio:
+        image: docker.io/minio/minio
+        ports:
+            - "9000:9000"
+            - "9001:9001"
+
+        environment:
+            - "MINIO_ACCESS_KEY=JrEXkCifdrHAjSAkWuB"
+            - "MINIO_SECRET_KEY=uhnzpNZhMTkdijYPDDx"
+        command: server /export --console-address ":9001"
+
+    createbuckets:
+        image: docker.io/minio/mc
+        depends_on:
+            - minio
+        entrypoint: >
+            /bin/sh -c "
+            /usr/bin/mc config host add myminio http://minio:9000 JrEXkCifdrHAjSAkWuB uhnzpNZhMTkdijYPDDx;
+            /usr/bin/mc rm -r --force myminio/analytics;
+            /usr/bin/mc mb myminio/analytics;
+            /usr/bin/mc policy download myminio/analytics;
+            exit 0;
+            "
+    hive-metastore:
+        build: src/test/docker_compose/hive/.
+        image: hive-metastore:latest
+        ports:
+            - 9083:9083
+        depends_on:
+            - mariadb
+            - minio
+        environment:
+            HADOOP_HOME: /opt/hadoop-3.3.2
+            HIVE_HOME: /opt/apache-hive-3.2.1-bin
+    mariadb:
+        image: docker.io/mariadb:latest
+        command:  --skip-grant-tables --init-file /init.sql
+        volumes:
+            - ./src/test/docker_compose/mariadb/init.sql:/init.sql:z
+        ports:
+            - 3306:3306
+        environment:
+            MYSQL_ROOT_PASSWORD: admin
+            MYSQL_USER: admin
+            MYSQL_PASSWORD: admin
+            MYSQL_DATABASE: metastore_db

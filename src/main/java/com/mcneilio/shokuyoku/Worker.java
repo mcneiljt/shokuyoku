@@ -2,26 +2,32 @@ package com.mcneilio.shokuyoku;
 
 import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.driver.S3StorageDriver;
+import com.mcneilio.shokuyoku.driver.StorageDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
+import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.orc.TypeDescription;
 import org.json.JSONObject;
-import software.amazon.ion.Timestamp;
-
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Properties;
 
 public class Worker {
+
     public Worker() {
+
         verifyEnvironment();
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
         Properties props = new Properties();
@@ -32,45 +38,85 @@ public class Worker {
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
+        String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC")!=null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
+
+        this.descriptionProvider = new HiveDescriptionProvider();
+        this.databaseName = System.getenv("HIVE_DATABASE");
         this.consumer = new KafkaConsumer<>(props);
-        this.consumer.subscribe(Arrays.asList(System.getenv("KAFKA_TOPIC")));
+        this.consumer.subscribe(Arrays.asList(kafkaTopic));
+        this.littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
+
         statsd = Statsd.getInstance();
     }
 
+
+    boolean running = true;
+    long currentOffset = 0;
+
     protected void start() {
-        long currentOffset = 0;
-        while (true) {
+        StorageDriver storageDriver = null;
+        if(System.getenv("S3_BUCKET")!=null) {
+            storageDriver=new S3StorageDriver(System.getenv("S3_BUCKET"),System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") );
+        }
+
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                System.out.println("Shutdown signal received...");
+                running = false;
+            }
+        });
+
+        while (running) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
             for (ConsumerRecord<String,byte[]> record : records) {
                 if(this.iterationTime == 0 && !records.isEmpty()) {
                     this.iterationTime = System.currentTimeMillis();
                 }
-                Firehose f = new Firehose(record.value());
+                Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
                 JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getFlattened();
+                if (!msg.has("timestamp") || !msg.has("event")) {
+                    continue;
+                }
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + "with date: " + date);
-                    drivers.put(eventName+date, new BasicEventDriver(eventName, date));
+
+                    TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    if(typeDescription!=null)
+                        drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
+                    else {
+                        continue;
+                    }
                 }
                 drivers.get(eventName+date).addMessage(msg);
                 currentOffset = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
-                drivers.forEach((s, eventDriver) -> {
-                    System.out.println("Flushing Event Driver for: "+s);
-                    eventDriver.flush();
-                });
-                drivers.clear();
-                if(currentOffset != 0) {
-                    System.out.println("Committing offset: " + currentOffset + " at: " + Timestamp.nowZ());
-                    currentOffset = 0;
-                    consumer.commitSync();
-                }
+                flushDrivers();
+
                 this.iterationTime = System.currentTimeMillis();
             }
             statsd.histogram("kafka.poll.size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
+        }
+
+        // Flush before exiting
+        flushDrivers();
+        System.out.println("Events and kafka offset flushed. Exiting....");
+    }
+
+    private void flushDrivers() {
+        drivers.forEach((s, eventDriver) -> {
+            System.out.println("Flushing Event Driver for: "+s);
+            eventDriver.flush(true);
+        });
+        drivers.clear();
+        if (currentOffset != 0) {
+            System.out.println("Committing offset: " + currentOffset + " at: " + Instant.now().toString()  );
+            currentOffset = 0;
+            consumer.commitSync();
         }
     }
 
@@ -84,7 +130,7 @@ public class Worker {
             System.out.println("KAFKA_GROUP_ID environment variable should contain the name of the Kafka group. e.g. shokuyoku");
             missingEnv = true;
         }
-        if(System.getenv("KAFKA_TOPIC") == null) {
+        if(System.getenv("KAFKA_TOPIC") == null && System.getenv("WORKER_KAFKA_TOPIC") == null) {
             System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
         }
@@ -122,8 +168,11 @@ public class Worker {
         }
     }
 
+    private final boolean littleEndian;
+    String databaseName;
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
     StatsDClient statsd;
+    private final HiveDescriptionProvider descriptionProvider;
 }

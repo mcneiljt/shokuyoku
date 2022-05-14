@@ -1,4 +1,4 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.format;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,6 +56,20 @@ public class JSONColumnFormatTest {
 
         assertThat(eventMsg.has("messageid")).isFalse();
         assertThat(eventMsg.has("message_id")).isTrue();
+    }
+
+    @Test
+    public void flattenConvertCamelCaseToSnakeCaseNested() throws Exception {
+        JSONObject eventMsg = getTestJSON();
+
+        assertThat(eventMsg.has("context_user_agent")).isTrue();
+    }
+
+    @Test
+    public void flattenConvertDotName() throws Exception {
+        JSONObject eventMsg = getTestJSON();
+
+        assertThat(eventMsg.has("properties_test_dot_char")).isTrue();
     }
 
     private JSONObject getTestJSON() throws Exception {

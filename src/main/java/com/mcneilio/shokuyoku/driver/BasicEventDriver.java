@@ -1,44 +1,48 @@
 package com.mcneilio.shokuyoku.driver;
 
-import com.amazonaws.SdkClientException;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+
 import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
-import org.apache.thrift.TException;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.UUID;
 
+/**
+ * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
+ * is reached, the ORC file is sent to the storageDriver.
+ */
 public class BasicEventDriver implements EventDriver {
 
-    public BasicEventDriver(String eventName, String date) {
+    public BasicEventDriver(String eventName, String date, TypeDescription typeDescription, StorageDriver storageDriver) {
         this.eventName = eventName;
         this.date = date;
-        setTypeDescription();
-        this.batch = this.schema.createRowBatch(Integer.parseInt(System.getenv("ORC_BATCH_SIZE")));
+        this.storageDriver = storageDriver;
+        this.schema = typeDescription;
+
+        // TODO This env vars should probably be pulled out.
+        this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") != null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
         setColumns();
-        nullColumns();
+        nullColumnsV2();
         this.statsd = Statsd.getInstance();
     }
 
@@ -46,6 +50,7 @@ public class BasicEventDriver implements EventDriver {
     public void addMessage(JSONObject msg) {
         long t = Instant.now().toEpochMilli();
         int batchPosition = batch.size++;
+
         msg.keys().forEachRemaining(key -> {
             if(columns.containsKey(key)) {
                 if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
@@ -111,22 +116,24 @@ public class BasicEventDriver implements EventDriver {
     }
 
     @Override
-    public void flush() {
+    public String flush(boolean deleteFile) {
         long t = Instant.now().toEpochMilli();
         if (batch.size != 0) {
             write();
         }
+        String writtenFileName = this.fileName;
+
         if(writer != null) {
             System.out.println("Flushing: " + this.eventName);
             try {
                 writer.close();
                 writer = null;
-                s3.putObject(System.getenv("S3_BUCKET"),
-                        System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") + "/"
-                                + eventName + "/date=" + date + "/" + fileName,
-                        new File(fileName));
+                if (storageDriver != null){
+                    storageDriver.addFile(date,  eventName, fileName, Paths.get(fileName));
+                }
                 //TODO: create hive partition
-                new File(fileName).delete();
+                if(deleteFile)
+                    new File(fileName).delete();
                 this.fileName = null;
             }
             catch (IOException e) {
@@ -135,6 +142,7 @@ public class BasicEventDriver implements EventDriver {
         }
         statsd.histogram("eventDriver.flush.ms", Instant.now().toEpochMilli() - t,
             new String[] {"env:"+System.getenv("STATSD_ENV")});
+        return writtenFileName;
     }
 
     private void write() {
@@ -153,10 +161,7 @@ public class BasicEventDriver implements EventDriver {
             System.out.println("Error writing orc file");
             e.printStackTrace();
         }
-        catch (SdkClientException e) {
-            System.out.println("Error with AWS SDK");
-            e.printStackTrace();
-        }
+
         statsd.histogram("eventDriver.write.ms", Instant.now().toEpochMilli() - t,
             new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
@@ -173,50 +178,23 @@ public class BasicEventDriver implements EventDriver {
         });
     }
 
-    /*
-     * get the schema for this batch
-     * TODO: This should pull from hive
-     */
-    private void setTypeDescription() {
-        HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.local", "false");
+    private void nullColumnsV2() {
+        columns.forEach( (key, value) -> {
+            value.noNulls = false;
 
-        hiveConf.setVar(HiveConf.ConfVars.METASTOREURIS, System.getenv("HIVE_URL"));
-        hiveConf.set(HiveConf.ConfVars.PREEXECHOOKS.varname, "");
-        hiveConf.set(HiveConf.ConfVars.POSTEXECHOOKS.varname, "");
-        hiveConf.set(HiveConf.ConfVars.HIVE_SUPPORT_CONCURRENCY.varname, "false");
-        HiveMetaStoreClient hiveMetaStoreClient = null;
-        try {
-            hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf, null);
-        } catch (MetaException e) {
-            e.printStackTrace();
-        }
-        try {
-            String tableName = this.eventName.substring(this.eventName.lastIndexOf(".")+1);
-            List<FieldSchema> a = hiveMetaStoreClient.getSchema("events", tableName);
-            TypeDescription td=  TypeDescription.createStruct();
-            for(FieldSchema fieldSchma : a){
-                if(fieldSchma.getType().equals("string")) {
-                    td = td.addField(fieldSchma.getName(), TypeDescription.createString());
-                } else if(fieldSchma.getType().equals("boolean")) {
-                    td = td.addField(fieldSchma.getName(), TypeDescription.createBoolean());
-                }  else if(fieldSchma.getType().equals("timestamp")) {
-                    td = td.addField(fieldSchma.getName(), TypeDescription.createTimestamp());
-                } else if(fieldSchma.getType().equals("bigint")) {
-                    td = td.addField(fieldSchma.getName(), TypeDescription.createLong());
-                } else if(fieldSchma.getType().equals("date")) {
-                    td = td.addField(fieldSchma.getName(), TypeDescription.createDate());
-                } else if(fieldSchma.getType().equals("array<string>")) {
-                    // TODO figure out this mapping
-                } else {
-                    System.out.println("Failed to resolve schema field type.");
-                }
+            if(value instanceof LongColumnVector) {
+                Arrays.fill(((LongColumnVector) value).vector, LongColumnVector.NULL_VALUE);
+                Arrays.fill(value.isNull, true);
             }
-            this.schema = td;
-        } catch (TException e) {
-            e.printStackTrace();
-        }
+            else if(value instanceof BytesColumnVector) {
+                Arrays.fill(((BytesColumnVector) value).vector, null);
+                Arrays.fill(value.isNull, true);
+            }
+            //array and timestamp columnVectors don't provide fillWithNulls
+            //array and timestamp columnVectors appear to work with null values
+        });
     }
+
 
     /**
      * The goal here is to tie column vectors to the keys, so they can be easily referenced
@@ -232,6 +210,11 @@ public class BasicEventDriver implements EventDriver {
         this.columns = columns;
     }
 
+    public String getFileName(){
+        return fileName;
+    }
+
+
     VectorizedRowBatch batch;
     TypeDescription schema;
     HashMap<String, ColumnVector> columns;
@@ -239,5 +222,6 @@ public class BasicEventDriver implements EventDriver {
     Configuration conf = new Configuration();
     Writer writer = null;
     StatsDClient statsd;
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.fromName(System.getenv("AWS_DEFAULT_REGION"))).build();
+    StorageDriver storageDriver;
+
 }

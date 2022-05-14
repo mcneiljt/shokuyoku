@@ -1,5 +1,7 @@
 package com.mcneilio.shokuyoku.format;
 
+import com.mcneilio.shokuyoku.util.StringNormalizer;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -42,6 +44,8 @@ public class Firehose {
         byte[] messageLen = ByteBuffer.allocate(4).putInt(messageBytes.length).array();
         byte[] separator = ByteBuffer.allocate(1).put((byte)0x2).array();
 
+
+        // Seems like this needs to also take endian into account
         ByteBuffer buffer = ByteBuffer.allocate(
                 prefix.length + topicLen.length + messageLen.length +
                         separator.length + topicBytes.length + messageBytes.length
@@ -56,14 +60,14 @@ public class Firehose {
         this.byteArray = buffer.array();
     }
 
-    public Firehose(byte[] byteArray) {
+    public Firehose(byte[] byteArray, boolean littleEndian) {
         this.byteArray = byteArray;
 
 
         int topicLength = byteArray[1] & 0xff;
         int msgLength;
 
-        if(System.getenv("ENDIAN").equals("little"))
+        if (littleEndian) // this should have a default
             msgLength = ((0xFF & byteArray[5]) << 24) | ((0xFF & byteArray[4]) << 16) |
                     ((0xFF & byteArray[3]) << 8) | (0xFF & byteArray[2]);
         else
@@ -74,8 +78,7 @@ public class Firehose {
                 topicLength));
 
         // convert to snake case
-        this.topic = fullTopic.replaceAll("([a-z])([A-Z]+)", "$1_$2").toLowerCase();
-
+        this.topic = StringNormalizer.normalizeTopic(fullTopic);
 
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
                 topicLength, 7+topicLength+msgLength));

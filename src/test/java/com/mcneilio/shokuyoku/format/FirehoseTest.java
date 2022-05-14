@@ -1,4 +1,4 @@
-package com.mcneilio;
+package com.mcneilio.shokuyoku.format;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,8 +6,8 @@ import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import org.json.JSONObject;
 import org.junit.Rule;
-import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
+import org.junit.jupiter.api.Test;
+import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -18,6 +18,7 @@ public class FirehoseTest {
     @Rule
     public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
+    //@SetEnvironmentVariable(key = "ENDIAN", value = "little")
     @Test
     public void deserializePerformance() throws Exception {
         environmentVariables.set("ENDIAN", "big");
@@ -31,7 +32,7 @@ public class FirehoseTest {
         long result = 0;
         for(int i=0; i<10; i++) {
             long timer = System.nanoTime();
-            new Firehose(arry);
+            new Firehose(arry, false);
             result += System.nanoTime() - timer;
         }
         long finalResult = result/10;
@@ -59,14 +60,15 @@ public class FirehoseTest {
     }
 
     @Test
-    public void firehoseCanSerializeAndDeserializeLittleEndian() {
+    public void firehoseCanSerializeAndDeserializeLittleEndian() throws Exception {
         String testTopic = "testTopic";
         JSONObject testMessage = new JSONObject();
 
         testMessage.put("name", "testMessage");
         environmentVariables.set("ENDIAN", "little");
+        environmentVariables.setup();
         Firehose firehoseMessage = new Firehose(testTopic, testMessage.toString());
-        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray());
+        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray(), false);
 
         assertThat(decodedMessage.getTopic()).isEqualTo("test_topic");
     }
