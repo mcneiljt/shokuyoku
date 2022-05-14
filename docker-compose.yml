@@ -53,8 +53,10 @@ services:
         ports:
             - 9083:9083
         depends_on:
-            - mariadb
-            - minio
+            mariadb:
+                condition: service_healthy
+            minio:
+                condition: service_started
         environment:
             HADOOP_HOME: /opt/hadoop-3.3.2
             HIVE_HOME: /opt/apache-hive-3.2.1-bin
@@ -70,3 +72,9 @@ services:
             MYSQL_USER: admin
             MYSQL_PASSWORD: admin
             MYSQL_DATABASE: metastore_db
+        restart: always
+        healthcheck:
+            test: [ "CMD-SHELL", "mysqlcheck metastore_db" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
