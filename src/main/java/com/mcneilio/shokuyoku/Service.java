@@ -14,6 +14,8 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.proxy.LoadBalancingProxyClient;
 import io.undertow.server.handlers.proxy.ProxyHandler;
+import io.undertow.server.handlers.resource.PathResourceManager;
+import io.undertow.server.handlers.resource.ResourceHandler;
 import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
 import io.undertow.util.PathTemplateMatch;
@@ -23,9 +25,13 @@ import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
 import org.json.JSONObject;
 
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Service {
     public Service() {
@@ -39,9 +45,9 @@ public class Service {
         this.producer = new KafkaProducer<>(props);
     }
 
-    protected void start() throws URISyntaxException {
+    protected void start() throws URISyntaxException, FileNotFoundException {
         LoadBalancingProxyClient loadBalancer = new LoadBalancingProxyClient()
-            .addHost(new URI("http://localhost:3005"))
+            .addHost(new URI("http://localhost:3000"))
             .setConnectionsPerThread(20);
         ProxyHandler pr = ProxyHandler.builder().setProxyClient(loadBalancer).setMaxRequestTime(30000).build();
 
@@ -50,6 +56,12 @@ public class Service {
         Gson gson = new Gson();
 
         SessionFactory sessionFactory = DBUtil.getSessionFactory();
+
+        Path path = Paths.get((System.getenv("UI_PATH") != null ? System.getenv("UI_PATH"): "ui/build")+"/index.html");
+        ResourceHandler staticServer = new ResourceHandler(new PathResourceManager(path, 100));
+        InputStream in = new BufferedInputStream(new FileInputStream(path.toFile()));
+        String indexHTML = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
+
 
         Undertow server = Undertow.builder()
             .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
@@ -69,7 +81,7 @@ public class Service {
                 exchange.getResponseSender().close();
             }).get("/event_type/{name}", exchange -> {
                 String eventType = exchange.getQueryParameters().get("name").getFirst().toString();
-                Query q = sessionFactory.openSession().createQuery("select et from EventTypeColumn et where et.name.eventType = :event_type", EventTypeColumn.class);
+                Query q = sessionFactory.openSession().createQuery("select et from EventTypeColumn et where et.name.name = :event_type", EventTypeColumn.class);
                 q.setParameter("event_type", eventType);
                 List<EventType> list = q.list();
 
@@ -100,16 +112,15 @@ public class Service {
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
                         String tableStr = hive.getTable(params.getParameters().get("database"), params.getParameters().get("tableName")) + "\n";
-                        if (tableStr!=null)
-                        exchange.getResponseSender().send(tableStr);
+                        if (tableStr != null)
+                            exchange.getResponseSender().send(tableStr);
                         else {
                             exchange.setStatusCode(404);
                             exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                             exchange.getResponseSender().send("{}");
                             exchange.getResponseSender().close();
                         }
-                    }
-                    else
+                    } else
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
@@ -118,8 +129,7 @@ public class Service {
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
                         hive.deleteTable(params.getParameters().get("database"), params.getParameters().get("tableName"));
-                    }
-                    else
+                    } else
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
@@ -128,8 +138,7 @@ public class Service {
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty() && !params.getParameters().get("columnName").isEmpty()) {
                         hive.dropColumns(params.getParameters().get("database"), params.getParameters().get("tableName"), new String[]{params.getParameters().get("columnName")});
-                    }
-                    else
+                    } else
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
@@ -139,11 +148,11 @@ public class Service {
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
                         CreateTableRequest createTableRequest = gson.fromJson(new String(m), CreateTableRequest.class);
 
-                       Table tbl = createTableRequest.toHiveTable(params.getParameters().get("database"));
+                        Table tbl = createTableRequest.toHiveTable(params.getParameters().get("database"));
 
                         try {
                             hive.addTable(tbl);
-                        } catch(Exception ex){
+                        } catch (Exception ex) {
                             System.out.println("ASD");
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
@@ -160,18 +169,23 @@ public class Service {
                         Table tbl = createTableRequest.toHiveTable(params.getParameters().get("database"));
 
                         try {
-                            hive.updateTable(params.getParameters().get("database"),params.getParameters().get("tableName"), tbl);
-                        } catch(Exception ex){
+                            hive.updateTable(params.getParameters().get("database"), params.getParameters().get("tableName"), tbl);
+                        } catch (Exception ex) {
                             System.out.println("ASD");
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
                         exchange.getResponseSender().close();
                     });
-                })).addPrefixPath("/", new HttpHandler() {
+                }))
+                //.addPrefixPath("/statoc/", staticServer)
+                .addPrefixPath("/", new HttpHandler() {
                 @Override
                 public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {
                     if (httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
                         pr.handleRequest(httpServerExchange);
+//                        httpServerExchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
+//                        httpServerExchange.getResponseSender().send(indexHTML);
+
                         return;
                     }
 

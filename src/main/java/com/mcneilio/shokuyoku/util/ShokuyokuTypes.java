@@ -1,9 +1,10 @@
 package com.mcneilio.shokuyoku.util;
 
-import org.apache.orc.TypeDescription;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.lang.reflect.Array;
-import java.lang.reflect.Type;
+import java.lang.reflect.GenericDeclaration;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -42,15 +43,43 @@ public class ShokuyokuTypes {
         }
     }
 
+    public static Class getArrayType(JSONArray jsonArray) {
+        if(jsonArray.length()==0){
+            return Array.class;
+        }
+        Class c = jsonArray.get(0).getClass();
+        for(int i=1;i<jsonArray.length();i++){
+            if(c.equals(String.class) || c.equals(JSONObject.class)){
+                break;
+            }
+            Class newC = jsonArray.get(i).getClass();
+            if(!c.equals(newC)){
+                return String.class;
+            }
+        }
+
+        if(c.equals(JSONObject.class)) {
+            return String.class;
+        }
+
+        return Array.newInstance(c, 0).getClass();
+    }
+
     public static String getOrcStringForClass(Class type){
-        if (type.equals(Double.class)){
+        if (type.equals(Double.class) || type.equals(BigDecimal.class)){
             return "double";
         } else if (type.equals(String.class)){
             return "string";
-        } else if (type.equals(Integer.class)){
+        } else if (type.equals(Boolean.class)){
+            return "boolean";
+        }  else if (type.equals(Integer.class)){
             return "int";
-        }   else {
-            System.out.println("Unsupported Column Type: " + type);
+        } else if (type.equals(Integer[].class)){
+            return "array<int>";
+        } else if (type.equals(String[].class)){
+            return "array<string>";
+        }  else {
+            System.out.println("Unsupported Column Type1: " + type);
             return null;
         }
     }

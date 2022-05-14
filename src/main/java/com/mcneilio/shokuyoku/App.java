@@ -1,12 +1,13 @@
 package com.mcneilio.shokuyoku;
 
+import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
 /**
  * Entrypoint to the shokuyoku daemon
  */
 public class App {
-    public static void main(String[] args) throws URISyntaxException {
+    public static void main(String[] args) throws URISyntaxException, FileNotFoundException {
         String newLine = System.getProperty("line.separator");
 
         if (args.length < 1) {
