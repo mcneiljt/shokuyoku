@@ -16,6 +16,7 @@ public class DBUtil {
         cfg.setProperty("hibernate.connection.username", System.getenv("DATABASE_USERNAME"));
 
         cfg.setProperty("hibernate.connection.password", System.getenv("DATABASE_PASSWORD"));
+        cfg.setProperty("hibernate.connection.autocommit", "true");
 
         cfg.setProperty("hibernate.hbm2ddl.auto", "update");
 

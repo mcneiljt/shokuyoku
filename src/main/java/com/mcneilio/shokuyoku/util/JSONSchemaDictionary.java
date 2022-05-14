@@ -5,9 +5,11 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.lang.reflect.Array;
-import java.math.BigDecimal;
+import java.lang.reflect.GenericDeclaration;
 import java.util.*;
 import java.util.function.Consumer;
+
+import static com.mcneilio.shokuyoku.util.ShokuyokuTypes.getArrayType;
 
 public class JSONSchemaDictionary {
     public static class EventTypeJSONSchema {
@@ -40,25 +42,28 @@ public class JSONSchemaDictionary {
 
             if(o instanceof JSONArray){
                 JSONArray jsonArray = (JSONArray) o;
-                if(jsonArray.length()==0){
-                    return possibleClasses.contains(Array.class);
-                }
-                Class c = jsonArray.get(0).getClass();
-                for(int i=1;i<jsonArray.length();i++){
-                    if(c.equals(String.class) || c.equals(JSONObject.class)){
-                        break;
-                    }
-                    Class newC = jsonArray.get(i).getClass();
-                    if(!c.equals(newC)){
-                        return possibleClasses.contains(String.class);
-                    }
-                }
+                GenericDeclaration a = getArrayType(jsonArray);
+                return possibleClasses.contains(a);
 
-                if(c.equals(JSONObject.class)) {
-                    return possibleClasses.contains(String.class);
-                }
-
-                return possibleClasses.contains(Array.newInstance(c, 0).getClass());
+//                if(jsonArray.length()==0){
+//                    return possibleClasses.contains(Array.class);
+//                }
+//                Class c = jsonArray.get(0).getClass();
+//                for(int i=1;i<jsonArray.length();i++){
+//                    if(c.equals(String.class) || c.equals(JSONObject.class)){
+//                        break;
+//                    }
+//                    Class newC = jsonArray.get(i).getClass();
+//                    if(!c.equals(newC)){
+//                        return possibleClasses.contains(String.class);
+//                    }
+//                }
+//
+//                if(c.equals(JSONObject.class)) {
+//                    return possibleClasses.contains(String.class);
+//                }
+//
+//                return possibleClasses.contains(Array.newInstance(c, 0).getClass());
             } else {
                 return possibleClasses.contains(o.getClass());
             }

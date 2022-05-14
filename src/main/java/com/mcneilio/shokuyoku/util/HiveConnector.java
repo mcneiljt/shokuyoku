@@ -34,7 +34,7 @@ public class HiveConnector {
         this.gson = new Gson();
     }
 
-    public String listDatabases() {
+    public synchronized String listDatabases() {
         try {
             List<String> tables =    client.getAllDatabases();
             return gson.toJson(tables);
@@ -46,7 +46,7 @@ public class HiveConnector {
         }
     }
 
-    public String listTables(String db) {
+    public synchronized String listTables(String db) {
         try {
             List<String> tables = client.getTables(db, "*");
             return gson.toJson(tables);
@@ -59,7 +59,7 @@ public class HiveConnector {
         }
     }
 
-    public String addTable(Table table) {
+    public synchronized String addTable(Table table) {
        // Table table = gson.fromJson(tbl, Table.class);
         try {
             client.createTable(table);
@@ -72,7 +72,7 @@ public class HiveConnector {
         return "";
     }
 
-    public String addTable(String db, String tbl) {
+    public synchronized String addTable(String db, String tbl) {
         Table table = gson.fromJson(tbl, Table.class);
         try {
             client.createTable(table);
@@ -85,7 +85,7 @@ public class HiveConnector {
         return "";
     }
 
-    public String getTable(String db, String tableName) {
+    public synchronized String getTable(String db, String tableName) {
         try {
             Table tbl = client.getTable(db, tableName);
             return gson.toJson(tbl);
@@ -100,11 +100,11 @@ public class HiveConnector {
         }
     }
 
-    public void updateTable(String db, String tableName, Table tbl) throws TException {
+    public synchronized void updateTable(String db, String tableName, Table tbl) throws TException {
         client.alter_table(db, tableName, tbl);
     }
 
-    public String updateTable(String db, String tableName, String tbl) {
+    public synchronized String updateTable(String db, String tableName, String tbl) {
         Table table = gson.fromJson(tbl, Table.class);
         try {
             client.alter_table(db, tableName, table);
@@ -116,11 +116,11 @@ public class HiveConnector {
         return "";
     }
 
-    public void deleteTable(String db, String tableName) throws TException {
+    public synchronized void deleteTable(String db, String tableName) throws TException {
         client.dropTable(db, tableName);
     }
 
-    public void dropColumns(String db, String tableName, String[] columnNames) throws TException {
+    public synchronized void dropColumns(String db, String tableName, String[] columnNames) throws TException {
         Set<String> columnNameSet = new HashSet<>(Arrays.asList(columnNames));
         Table tbl = client.getTable(db, tableName);
 

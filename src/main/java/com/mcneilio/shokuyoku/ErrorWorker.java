@@ -14,12 +14,16 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static com.mcneilio.shokuyoku.util.ShokuyokuTypes.getArrayType;
 
 public class ErrorWorker {
 
@@ -71,10 +75,13 @@ public class ErrorWorker {
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .build();
 
+        Session readSession = sessionFactory.openSession();
 
         while (running) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(
                 Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
+            Session writeSession = sessionFactory.openSession();
+
             for (ConsumerRecord<String, byte[]> record : records) {
                 if (this.iterationTime == 0 && !records.isEmpty()) {
                     this.iterationTime = System.currentTimeMillis();
@@ -87,35 +94,53 @@ public class ErrorWorker {
                     eventName =eventName.substring(hadDot + 1);
 
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
+
+
                 if (eventTypeJSONSchema == null) {
                     JSONObject flat = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, Collections.singleton("properties"));
-                    Session session = sessionFactory.openSession();
-                    EventType eventType = session.get(EventType.class, eventName);
+                    EventType eventType = readSession.get(EventType.class, eventName);
 
                     if(seen.getIfPresent(eventName)==null) {
                         seen.put(eventName, true);
                         if (eventType == null) {
                             eventType = new EventType(eventName, new Timestamp(System.currentTimeMillis()), false);
-                            session.persist(eventType);
+                            Transaction trx = writeSession.beginTransaction();
+                            writeSession.persist(eventType);
+                            trx.commit();
                         } else {
                             eventType.setLastError(new Timestamp(System.currentTimeMillis()));
-                            session.persist(eventType);
-                        }
+                            Transaction trx = writeSession.beginTransaction();
+                            writeSession.merge(eventType);
+                            trx.commit();                        }
                     }
                     for(String columnName: flat.keySet()){
                         String cacheKey = eventName+":"+columnName;
                         if(seen.getIfPresent(cacheKey)==null) {
                             seen.put(cacheKey, true);
-                            EventTypeColumn eventTypeColumn = session.get(EventTypeColumn.class, new EventTypeColumn.EventTypeColumnKey(eventName, columnName));
+                            EventTypeColumn eventTypeColumn = readSession.get(EventTypeColumn.class, new EventTypeColumn.EventTypeColumnKey(eventName, columnName));
                             if (eventTypeColumn == null) {
-                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), ShokuyokuTypes.getOrcStringForClass(flat.get(columnName).getClass()), new Timestamp(System.currentTimeMillis()));
-                                session.persist(eventTypeColumn);
+
+                                Class cl = flat.get(columnName).getClass();
+                                if (flat.get(columnName) instanceof JSONArray) {
+                                    cl = getArrayType((JSONArray) flat.get(columnName));
+                                    System.out.println("Unsupported Column Type2: " + cl);
+                                }
+
+                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), ShokuyokuTypes.getOrcStringForClass(cl), new Timestamp(System.currentTimeMillis()));
+
+                                Transaction trx = writeSession.beginTransaction();
+                                writeSession.persist(eventTypeColumn);
+                                trx.commit();
                             } else {
                                 eventTypeColumn.setLastError(new Timestamp(System.currentTimeMillis()));
-                                session.persist(eventTypeColumn);
+
+                                Transaction trx = writeSession.beginTransaction();
+                                writeSession.merge(eventTypeColumn);
+                                trx.commit();
                             }
                         }
                     }
+                //    session.flush();
                 } else {
                     List<String[]> errorColumns = new ArrayList<>();
                     JSONColumnFormat.JSONColumnFormatFilter filter = eventTypeJSONSchema.getJSONColumnFormatFilter();
@@ -139,7 +164,16 @@ public class ErrorWorker {
                         @Override
                         public boolean filterColumn(String str, Object o) {
                             if (filter.filterColumn(str, o)) {
-                                errorColumns.add(new String[]{str, ShokuyokuTypes.getOrcStringForClass(o.getClass())});
+
+                                Class cl = o.getClass();
+                                if (o instanceof JSONArray) {
+                                    cl = getArrayType((JSONArray) o);
+                                    System.out.println("Unsupported Column Type: " + cl);
+
+                                }
+
+                                String inferredType = ShokuyokuTypes.getOrcStringForClass(cl);
+                                errorColumns.add(new String[]{str, inferredType !=null ? inferredType : ("Unknown Type: "+o.getClass().toString())});
                                 System.out.println("Flilter column: "+str);
                                 return true;
                             }
@@ -158,10 +192,16 @@ public class ErrorWorker {
                                 EventTypeColumn eventTypeColumn = session.get(EventTypeColumn.class, new EventTypeColumn.EventTypeColumnKey(eventName, columnName));
                                 if (eventTypeColumn == null) {
                                     eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), columnE[1], new Timestamp(System.currentTimeMillis()));
+
+                                    Transaction trx = writeSession.beginTransaction();
                                     session.persist(eventTypeColumn);
+                                    trx.commit();
                                 } else {
                                     eventTypeColumn.setLastError(new Timestamp(System.currentTimeMillis()));
-                                    session.persist(eventTypeColumn);
+
+                                    Transaction trx = writeSession.beginTransaction();
+                                    session.merge(eventTypeColumn);
+                                    trx.commit();
                                 }
                             }
                         }
@@ -170,6 +210,7 @@ public class ErrorWorker {
                 }
             }
             consumer.commitSync();
+            writeSession.close();
         }
     }
 
