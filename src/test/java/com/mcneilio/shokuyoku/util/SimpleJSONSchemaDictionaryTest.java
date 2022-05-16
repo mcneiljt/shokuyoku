@@ -35,7 +35,8 @@ public class SimpleJSONSchemaDictionaryTest {
         prefixes.add("context");
         fields.put("context_field_one", String.class);
 
-        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, fields, false, false);
+
+        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, fields, false, false, null);
         simpleJSONSchemaDictionary.addEventType("test_event", eventTypeJSONSchema);
 
         return simpleJSONSchemaDictionary;

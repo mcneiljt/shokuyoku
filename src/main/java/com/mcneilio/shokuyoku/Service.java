@@ -2,9 +2,7 @@ package com.mcneilio.shokuyoku;
 
 import com.google.gson.Gson;
 import com.mcneilio.shokuyoku.format.Firehose;
-import com.mcneilio.shokuyoku.model.CreateTableRequest;
-import com.mcneilio.shokuyoku.model.EventType;
-import com.mcneilio.shokuyoku.model.EventTypeColumn;
+import com.mcneilio.shokuyoku.model.*;
 import com.mcneilio.shokuyoku.util.DBUtil;
 import com.mcneilio.shokuyoku.util.HiveConnector;
 import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
@@ -21,7 +19,9 @@ import io.undertow.util.HttpString;
 import io.undertow.util.PathTemplateMatch;
 import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.kafka.clients.producer.*;
+import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.query.Query;
 import org.json.JSONObject;
 
@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -62,7 +63,7 @@ public class Service {
         InputStream in = new BufferedInputStream(new FileInputStream(path.toFile()));
         String indexHTML = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
 
-
+        Session writeSession = sessionFactory.openSession();
         Undertow server = Undertow.builder()
             .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
             .setHandler(Handlers.path().addPrefixPath("/types", Handlers.routing()
@@ -71,7 +72,25 @@ public class Service {
                     exchange.getResponseSender().send(gson.toJson(ShokuyokuTypes.getSupportedTypeStrings()));
                     exchange.getResponseSender().close();
                 })
-            ).addPrefixPath("/deltas", Handlers.routing().get("/event_type", exchange -> {
+            ).addPrefixPath("/batch_modifiers", Handlers.routing()
+                    .post("/", exchange -> {
+                        exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+
+                            BatchModifierRequest createTableRequest = gson.fromJson(new String(m), BatchModifierRequest.class);
+
+                            for (BatchModifierRequest.ColumnModifier modifier: createTableRequest.getModifiers()){
+                                EventTypeColumnModifier eventTypeColumnModifier = new EventTypeColumnModifier(new EventTypeColumn.EventTypeColumnKey(modifier.getEvent_type(), modifier.getName()), EventTypeColumnModifier.EventColumnModifierType.valueOf(modifier.getType().toUpperCase()), new Timestamp(System.currentTimeMillis()));
+                                Transaction trx = writeSession.beginTransaction();
+                                writeSession.persist(eventTypeColumnModifier);
+                                trx.commit();
+                            }
+
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                            exchange.getResponseSender().send(gson.toJson(ShokuyokuTypes.getSupportedTypeStrings()));
+                            exchange.getResponseSender().close();
+                        });
+                    })
+                ).addPrefixPath("/deltas", Handlers.routing().get("/event_type", exchange -> {
 
                 Query q = sessionFactory.openSession().createQuery("select et from EventType et", EventType.class);
                 List<EventType> list = q.list();

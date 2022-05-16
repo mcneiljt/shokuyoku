@@ -1,10 +1,10 @@
 package com.mcneilio.shokuyoku.util;
 
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
+import com.mcneilio.shokuyoku.model.EventTypeColumnModifier;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.lang.reflect.Array;
 import java.lang.reflect.GenericDeclaration;
 import java.util.*;
 import java.util.function.Consumer;
@@ -17,7 +17,9 @@ public class JSONSchemaDictionary {
         public Map<String, Set<Class>> columns;
         private boolean ignoreNulls;
 
-        public EventTypeJSONSchema(Set<String> prefixes, Map<String, Class> columns, boolean ignoreNulls, boolean allowInvalidCoercions){
+        private Map<String, EventTypeColumnModifier> modifierMap = new HashMap<>();
+
+        public EventTypeJSONSchema(Set<String> prefixes, Map<String, Class> columns, boolean ignoreNulls, boolean allowInvalidCoercions, List<EventTypeColumnModifier> eventTypeColumnModifier){
             this.prefixes = prefixes;
             this.ignoreNulls = ignoreNulls;
 
@@ -33,6 +35,12 @@ public class JSONSchemaDictionary {
             });
 
             this.columns = flattenedMap;
+
+            if(eventTypeColumnModifier!=null){
+                for (EventTypeColumnModifier eventTypeColumnModifier1 :eventTypeColumnModifier){
+                    modifierMap.put(eventTypeColumnModifier1.getName().getName(),eventTypeColumnModifier1);
+                }
+            }
         }
 
         public boolean hasColumn(String str, Object o) {
@@ -74,6 +82,7 @@ public class JSONSchemaDictionary {
         }
 
         public JSONColumnFormat.JSONColumnFormatFilter getJSONColumnFormatFilter() {
+            // TODO create this on construction
             return new JSONColumnFormat.JSONColumnFormatFilter() {
                 private long filterCount = 0;
 
@@ -104,6 +113,17 @@ public class JSONSchemaDictionary {
                         return true;
                     }
                     return false;
+                }
+
+                @Override
+                public Object modifyColumn(String str, Object o) {
+                    EventTypeColumnModifier eventTypeColumnModifier = modifierMap.get(str);
+                    if(eventTypeColumnModifier!=null){
+                        if(eventTypeColumnModifier.getType().equals(EventTypeColumnModifier.EventColumnModifierType.DROP)){
+                            return null;
+                        }
+                    }
+                    return o;
                 }
             };
         }
