@@ -58,9 +58,10 @@ public class Service {
 
         SessionFactory sessionFactory = DBUtil.getSessionFactory();
 
-        Path path = Paths.get((System.getenv("UI_PATH") != null ? System.getenv("UI_PATH"): "ui/build")+"/index.html");
+        Path path = Paths.get((System.getenv("UI_PATH") != null ? System.getenv("UI_PATH"): "ui/build"));
+        Path indexPath = Paths.get(path.toString(), "index.html");
         ResourceHandler staticServer = new ResourceHandler(new PathResourceManager(path, 100));
-        InputStream in = new BufferedInputStream(new FileInputStream(path.toFile()));
+        InputStream in = new BufferedInputStream(new FileInputStream(indexPath.toFile()));
         String indexHTML = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
 
         Session writeSession = sessionFactory.openSession();
@@ -196,14 +197,21 @@ public class Service {
                         exchange.getResponseSender().close();
                     });
                 }))
-                //.addPrefixPath("/statoc/", staticServer)
+                //.addPrefixPath("/static/", staticServer)
                 .addPrefixPath("/", new HttpHandler() {
                 @Override
                 public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {
                     if (httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
-                        pr.handleRequest(httpServerExchange);
-//                        httpServerExchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
-//                        httpServerExchange.getResponseSender().send(indexHTML);
+                        if(System.getenv("DEV_UI")!=null) {
+                            pr.handleRequest(httpServerExchange);
+                        }else {
+                            if (httpServerExchange.getRequestPath().startsWith("/static/")) {
+                                staticServer.handleRequest(httpServerExchange);
+                            }else{
+                                httpServerExchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
+                                httpServerExchange.getResponseSender().send(indexHTML);
+                            }
+                        }
 
                         return;
                     }
