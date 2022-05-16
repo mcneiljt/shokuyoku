@@ -19,10 +19,12 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
     }
    public  OrcJSONSchemaDictionary(String hiveURL, String databaseName, boolean ignoreNulls, boolean allowInvalidCoercions, HashMap<String, HashMap<String, Class>> schemaOverrides, List<EventTypeColumnModifier> eventTypeColumnModifierList){
 
-        Map<String, EventTypeColumnModifier> columnModifierMap = new HashMap<>();
+        Map<String, List<EventTypeColumnModifier>> columnModifierMap = new HashMap<>();
         if (eventTypeColumnModifierList!=null){
             for(EventTypeColumnModifier eventTypeColumnModifier: eventTypeColumnModifierList){
-                columnModifierMap.put(eventTypeColumnModifier.getName().getEventType(), eventTypeColumnModifier);
+                if(!columnModifierMap.containsKey(eventTypeColumnModifier.getName().getEventType()))
+                    columnModifierMap.put(eventTypeColumnModifier.getName().getEventType(), new ArrayList<>());
+                columnModifierMap.get(eventTypeColumnModifier.getName().getEventType()).add(eventTypeColumnModifier);
             }
         }
 
@@ -72,7 +74,7 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
                         }
 
                         synchronized (eventTypes) {
-                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns, ignoreNulls, allowInvalidCoercions, null));
+                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns, ignoreNulls, allowInvalidCoercions, columnModifierMap.get(tableName)));
                         }
                         System.out.println("Fetched Orc Table: "+tableName);
                     }
