@@ -127,7 +127,7 @@ public class Service {
                     });
                     exchange.getResponseSender().close();
                 })
-                .get("/{database}/{tableName}", exchange -> {
+                .get("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
@@ -144,7 +144,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .delete("/{database}/{tableName}", exchange -> {
+                .delete("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
@@ -153,7 +153,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .delete("/{database}/{tableName}/column/{columnName}", exchange -> {
+                .delete("/{database}/table/{tableName}/column/{columnName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty() && !params.getParameters().get("columnName").isEmpty()) {
@@ -162,7 +162,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .post("/{database}/{tableName}", exchange -> {
+                .post("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
@@ -174,13 +174,30 @@ public class Service {
                             hive.addTable(tbl);
                         } catch (Exception ex) {
                             System.out.println("ASD");
+                            ex.printStackTrace();
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
                         exchange.getResponseSender().close();
                     });
 
                 })
-                .put("/{database}/{tableName}", exchange -> {
+                    .post("/{database}/table/{tableName}/delete_columns", exchange -> {
+                        PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                        exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                            String[] columns = gson.fromJson(new String(m), String[].class);
+
+                            try {
+                                hive.dropColumns(params.getParameters().get("database"), params.getParameters().get("tableName"), columns);
+                            } catch (Exception ex) {
+                                System.out.println("ASD");
+                            }
+                            exchange.getResponseSender().send("might have accepted it" + "\n");
+                            exchange.getResponseSender().close();
+                        });
+
+                    })
+                .put("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {

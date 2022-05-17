@@ -16,6 +16,7 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
+import static org.junit.Assert.assertTrue;
 
 public class JSONColumnFormatFilterTest {
 
@@ -77,13 +78,17 @@ public class JSONColumnFormatFilterTest {
         columns.put("test_dot_char", String.class);
         JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchemaPlain = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false, null);
 
-        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchemaModifier = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false, Collections.singletonList(new EventTypeColumnModifier(new EventTypeColumn.EventTypeColumnKey("focus_window","context_library_name"), EventTypeColumnModifier.EventColumnModifierType.DROP, null)));
+        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchemaModifier = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false,
+            Collections.singletonList(new EventTypeColumnModifier(new EventTypeColumn.EventTypeColumnKey("focus_window","context_library_name"), EventTypeColumnModifier.EventColumnModifierType.DROP, null)));
         jsonSchemaDictionary.addEventType("focus_window", eventTypeJSONSchemaModifier);
 
         JSONObject plain = eventMsg.getCopy(eventTypeJSONSchemaPlain.getJSONColumnFormatFilter(), false);
 
         JSONObject modified = eventMsg.getCopy(eventTypeJSONSchemaModifier.getJSONColumnFormatFilter(), false);
         System.out.println("ASD");
+
+        assertTrue(plain.has("context") && ((JSONObject)plain.get("context")).has("library") && ((JSONObject)((JSONObject)plain.get("context")).get("library")).has("name") );
+        assertTrue(!modified.has("context") || !((JSONObject)modified.get("context")).has("library") || !((JSONObject)((JSONObject)modified.get("context")).get("library")).has("name") );
 
     }
 

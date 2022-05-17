@@ -2,7 +2,6 @@ package com.mcneilio.shokuyoku.model;
 
 import jakarta.persistence.*;
 
-import java.io.Serializable;
 import java.sql.Timestamp;
 
 @Entity
@@ -10,7 +9,7 @@ import java.sql.Timestamp;
     name = "event_type_column_modifier_name_idx",
     columnList="name"
 ) }, uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"name"})})
+    @UniqueConstraint(columnNames = {"event_type", "name"})})
 public class EventTypeColumnModifier {
 
     public EventTypeColumnModifier() {}
