@@ -93,7 +93,7 @@ public class Worker {
                     }
                 }
 
-                EventDriver eventDriver = drivers.put(eventName+date, null);
+                EventDriver eventDriver = drivers.get(eventName+date);
                 if (eventDriver!=null) {
                     eventDriver.addMessage(msg);
                 }
