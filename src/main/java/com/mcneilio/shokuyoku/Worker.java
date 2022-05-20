@@ -88,10 +88,15 @@ public class Worker {
                     if(typeDescription!=null)
                         drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
                     else {
+                        drivers.put(eventName+date, null);
                         continue;
                     }
                 }
-                drivers.get(eventName+date).addMessage(msg);
+
+                EventDriver eventDriver = drivers.put(eventName+date, null);
+                if (eventDriver!=null) {
+                    eventDriver.addMessage(msg);
+                }
                 currentOffset = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
