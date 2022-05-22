@@ -59,10 +59,11 @@ public class BasicEventDriver implements EventDriver {
 
         for(int colId =0;colId<colNames.length;colId++){
             String key=colNames[colId];
-            Object value = msg2.get(key);
-            if(value==null) {
+
+            if(!msg2.has(key)) {
                 continue;
             }
+            Object value = msg2.get(key);
 
             if(orcers[colId]!=null){
                 orcers[colId].addObject(columnVectors[colId], batchPosition, value);
@@ -246,7 +247,6 @@ public class BasicEventDriver implements EventDriver {
                                 longColumnVector.isNull[idx] = true;
                             }
                         } else {
-                            System.out.println("ASD");
                             longColumnVector.isNull[idx] = true;
                         }
                     }
@@ -267,8 +267,8 @@ public class BasicEventDriver implements EventDriver {
                             bytes =((Long)obj).toString().getBytes();
                         }else if(obj instanceof Boolean) {
                             bytes =((Boolean)((Boolean) obj).booleanValue() ? "true" : "false").toString().getBytes();
-                        }else{
-                                                   System.out.println("asd");
+                        } else {
+                              // TODO: Are there other possible types?
                         }
                         bytesColumnVector.setRef(idx, bytes, 0,bytes.length);
                         bytesColumnVector.isNull[idx]=false;
@@ -290,7 +290,6 @@ public class BasicEventDriver implements EventDriver {
                             }
                         }else{
                             longColumnVector.isNull[idx]=true;
-                            System.out.println("asd");
                         }
                     }
                 };
@@ -304,7 +303,6 @@ public class BasicEventDriver implements EventDriver {
                             longColumnVector.vector[idx] = (Integer)obj;
                             longColumnVector.isNull[idx] = false;
                         }else{
-                            System.out.println("asd");
                             longColumnVector.isNull[idx]=true;
                         }
                     }
@@ -323,7 +321,6 @@ public class BasicEventDriver implements EventDriver {
                             longColumnVector.vector[idx] = ((BigDecimal)obj).longValue();
                             longColumnVector.isNull[idx] = false;
                         }else{
-                            System.out.println("asd");
                             longColumnVector.isNull[idx]=true;
                         }
                     }
@@ -342,7 +339,6 @@ public class BasicEventDriver implements EventDriver {
                             longColumnVector.vector[idx] = ((BigDecimal)obj).longValue();
                             longColumnVector.isNull[idx] = false;
                         }else{
-                            System.out.println("asd");
                             longColumnVector.isNull[idx]=true;
                         }
                     }
@@ -363,7 +359,6 @@ public class BasicEventDriver implements EventDriver {
                             longColumnVector.vector[idx] = ((Long)obj).longValue();
                             longColumnVector.isNull[idx] = false;
                         }else{
-                            System.out.println("asd");
                             longColumnVector.isNull[idx]=true;
                         }
                     }
@@ -389,10 +384,8 @@ public class BasicEventDriver implements EventDriver {
                             decimalColumnVector.isNull[idx]=false;
 
                         } else{
-//                            System.out.println("asd");
                             decimalColumnVector.isNull[idx]=true;
                         }
-                  //      decimalColumnVector.isNull[idx]=true;
                     }
                 };
             } else if(typeDescription.toString().equals("double") || typeDescription.toString().equals("float")) {
