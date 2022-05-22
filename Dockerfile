@@ -7,7 +7,7 @@ COPY src/ ./src/
 COPY pom.xml ./pom.xml
 RUN mvn package
 
-FROM gcr.io/distroless/java17-debian11
+FROM gcr.io/distroless/java17-debian11:debug
 COPY --from=1 target/shokuyoku-1.0.0.jar ./
 COPY --from=0 ui/build /ui/
 ENTRYPOINT ["java", "-jar", "shokuyoku-1.0.0.jar"]

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Properties;
 
 public class Worker {
@@ -67,6 +68,13 @@ public class Worker {
             }
         });
 
+        HashSet<String> hoistFields = new HashSet();
+        if(System.getenv("HOIST_FIELDS")!=null){
+            for(String field : System.getenv("HOIST_FIELDS").split(",")) {
+                hoistFields.add(field.trim());
+            }
+        }
+
         while (running) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
@@ -76,13 +84,13 @@ public class Worker {
                 }
                 Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
-                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getFlattened();
+                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, hoistFields);
                 if (!msg.has("timestamp") || !msg.has("event")) {
                     continue;
                 }
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
-                    System.out.println("Creating driver for event: " + eventName + "with date: " + date);
+                    System.out.println("Creating driver for event: " + eventName + " with date: " + date);
 
                     TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
                     if(typeDescription!=null)
@@ -114,8 +122,10 @@ public class Worker {
 
     private void flushDrivers() {
         drivers.forEach((s, eventDriver) -> {
-            System.out.println("Flushing Event Driver for: "+s);
-            eventDriver.flush(true);
+            if (eventDriver!=null) {
+                System.out.println("Flushing Event Driver for: " + s);
+                eventDriver.flush(true);
+            }
         });
         drivers.clear();
         if (currentOffset != 0) {

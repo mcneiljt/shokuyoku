@@ -126,7 +126,11 @@ public class ErrorWorker {
                                     System.out.println("Unsupported Column Type2: " + cl);
                                 }
 
-                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), ShokuyokuTypes.getOrcStringForClass(cl), new Timestamp(System.currentTimeMillis()));
+	
+				String inferredType =ShokuyokuTypes.getOrcStringForClass(cl);
+				inferredType = inferredType !=null ? inferredType : ("Unknown Type: "+cl.toString());
+
+                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), inferredType, new Timestamp(System.currentTimeMillis()));
 
                                 Transaction trx = writeSession.beginTransaction();
                                 writeSession.persist(eventTypeColumn);
