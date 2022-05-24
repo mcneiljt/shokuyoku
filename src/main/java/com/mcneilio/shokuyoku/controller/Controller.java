@@ -11,22 +11,22 @@ import java.util.Map;
 import java.util.Properties;
 
 public class Controller {
-    void setOffsets(Map<TopicPartition, OffsetAndMetadata> offsets) {
-        if(this.admin == null) {
-            createAdmin();
-        }
+    public void setOffsets(Map<TopicPartition, OffsetAndMetadata> offsets) {
         admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP"));
         admin.alterConsumerGroupOffsets("KAFKA_GROUP", offsets);
     }
 
-    ListConsumerGroupOffsetsResult getOffsets() {
-        if(this.admin == null) {
-            createAdmin();
+    public Map<TopicPartition,OffsetAndMetadata> getOffsets() {
+        try {
+            return admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP")).partitionsToOffsetAndMetadata().get();
         }
-        return admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP"));
+        catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
-    private void createAdmin() {
+    public Controller() {
         Properties props = new Properties();
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
         this.admin = KafkaAdminClient.create(props);
