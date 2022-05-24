@@ -1,6 +1,8 @@
 package com.mcneilio.shokuyoku;
 
+import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
+import com.mcneilio.shokuyoku.controller.Controller;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.model.CreateTableRequest;
 import com.mcneilio.shokuyoku.model.EventType;
@@ -20,12 +22,15 @@ import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
 import io.undertow.util.PathTemplateMatch;
 import org.apache.hadoop.hive.metastore.api.*;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.*;
+import org.apache.kafka.common.TopicPartition;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.Query;
 import org.json.JSONObject;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -43,6 +48,7 @@ public class Service {
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         this.producer = new KafkaProducer<>(props);
+        this.controller = new Controller();
     }
 
     protected void start() throws URISyntaxException, FileNotFoundException {
@@ -205,7 +211,19 @@ public class Service {
                             });
                     });
                 }
-            }))
+            })
+            .addPrefixPath("/kafka", Handlers.routing()
+                .get("/offsets", exchange -> {
+                    exchange.getResponseSender().send(gson.toJson(controller.getOffsets()));
+                    exchange.getResponseSender().close();
+                })
+                .put("/offsets", exchange -> {
+                    exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                        Type mapType = new TypeToken<Map<TopicPartition, OffsetAndMetadata>>() {}.getType();
+                        controller.setOffsets(gson.fromJson(new String(m), mapType));
+                    });
+                })
+            ))
             .build();
         server.start();
     }
@@ -235,4 +253,5 @@ public class Service {
     }
 
     private final Producer<String, byte[]> producer;
+    private final Controller controller;
 }
