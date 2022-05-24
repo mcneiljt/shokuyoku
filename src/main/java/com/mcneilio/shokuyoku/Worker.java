@@ -7,9 +7,9 @@ import com.mcneilio.shokuyoku.driver.StorageDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
+import com.mcneilio.shokuyoku.util.HiveConnector;
 import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
-import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -20,11 +20,11 @@ import org.json.JSONObject;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Properties;
+import java.util.*;
 
 public class Worker {
+
+    private final String kafkaTopic;
 
     public Worker() {
 
@@ -40,6 +40,7 @@ public class Worker {
 
         String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC")!=null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
 
+        this.kafkaTopic = kafkaTopic;
         this.descriptionProvider = new HiveDescriptionProvider();
         this.databaseName = System.getenv("HIVE_DATABASE");
         this.consumer = new KafkaConsumer<>(props);
@@ -51,7 +52,7 @@ public class Worker {
 
 
     boolean running = true;
-    long currentOffset = 0;
+    long offsets[];
 
     protected void start() {
         StorageDriver storageDriver = null;
@@ -67,7 +68,10 @@ public class Worker {
             }
         });
 
+        offsets = new long[consumer.partitionsFor(kafkaTopic).size()];
+
         while (running) {
+
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
             for (ConsumerRecord<String,byte[]> record : records) {
@@ -85,14 +89,16 @@ public class Worker {
                     System.out.println("Creating driver for event: " + eventName + "with date: " + date);
 
                     TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
-                    if(typeDescription!=null)
-                        drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
+                    if(typeDescription!=null) {
+                        drivers.put(eventName + date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
+                        partitionsToFlush.add(new String[] {eventName, date});
+                    }
                     else {
                         continue;
                     }
                 }
                 drivers.get(eventName+date).addMessage(msg);
-                currentOffset = record.offset();
+                offsets[record.partition()] = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
                 flushDrivers();
@@ -113,11 +119,25 @@ public class Worker {
             eventDriver.flush(true);
         });
         drivers.clear();
-        if (currentOffset != 0) {
-            System.out.println("Committing offset: " + currentOffset + " at: " + Instant.now().toString()  );
-            currentOffset = 0;
-            consumer.commitSync();
+
+        HashSet<String> flushedThisTime = new HashSet<>();
+        for(String[] partitionPair : partitionsToFlush) {
+            flushedThisTime.add(partitionPair[0]+partitionPair[1]);
+            if(!lastPartitionsFlushed.contains(partitionPair[0]+partitionPair[1]))
+                HiveConnector.getConnector().addPartition(this.databaseName, partitionPair[0], Collections.singletonList(partitionPair[1]));
         }
+        lastPartitionsFlushed = flushedThisTime;
+
+
+        for(int offsetIndex=0;offsetIndex<offsets.length;offsetIndex++){
+            if(offsets[offsetIndex]==0){
+                continue;
+            }
+            String now = Instant.now().toString();
+            System.out.println("Committing for partition: " + offsetIndex +" offset at " + offsets[offsetIndex] + " at: " + now  );
+            offsets[offsetIndex] = 0;
+        }
+        consumer.commitSync();
     }
 
     private void verifyEnvironment() {
@@ -172,6 +192,8 @@ public class Worker {
     String databaseName;
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
+    List<String[]> partitionsToFlush = new ArrayList<>();
+    HashSet<String> lastPartitionsFlushed = new HashSet<>();
     long iterationTime = 0;
     StatsDClient statsd;
     private final HiveDescriptionProvider descriptionProvider;
