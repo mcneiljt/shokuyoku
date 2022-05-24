@@ -221,6 +221,8 @@ public class Service {
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
                         Type mapType = new TypeToken<Map<TopicPartition, OffsetAndMetadata>>() {}.getType();
                         controller.setOffsets(gson.fromJson(new String(m), mapType));
+                        exchange.setStatusCode(202);
+                        exchange.getResponseSender().close();
                     });
                 })
             ))
