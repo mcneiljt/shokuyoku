@@ -246,6 +246,10 @@ public class Service {
             System.out.println("LISTEN_PORT environment variable should contain the port to listen on e.g. 8080");
             missingEnv = true;
         }
+        if(System.getenv("KAFKA_GROUP_ID") == null) {
+            System.out.println("KAFKA_GROUP_ID environment variable should contain the name of the Kafka group. e.g. shokuyoku");
+            missingEnv = true;
+        }
         if (missingEnv) {
             System.out.println("Missing required environment variable(s); exiting.");
             System.exit(1);

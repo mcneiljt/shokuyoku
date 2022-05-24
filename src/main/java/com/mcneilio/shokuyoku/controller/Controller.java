@@ -11,13 +11,13 @@ import java.util.Properties;
 
 public class Controller {
     public void setOffsets(Map<TopicPartition, OffsetAndMetadata> offsets) {
-        admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP"));
-        admin.alterConsumerGroupOffsets("KAFKA_GROUP", offsets);
+        admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP_ID"));
+        admin.alterConsumerGroupOffsets("KAFKA_GROUP_ID", offsets);
     }
 
     public Map<TopicPartition,OffsetAndMetadata> getOffsets() {
         try {
-            return admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP")).partitionsToOffsetAndMetadata().get();
+            return admin.listConsumerGroupOffsets(System.getenv("KAFKA_GROUP_ID")).partitionsToOffsetAndMetadata().get();
         }
         catch (Exception e) {
             e.printStackTrace();
