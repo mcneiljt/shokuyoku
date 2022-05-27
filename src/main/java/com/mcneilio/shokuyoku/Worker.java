@@ -54,7 +54,7 @@ public class Worker {
     boolean running = true;
     long currentOffset = 0;
 
-    protected void start() {
+    protected void start() throws Exception {
         StorageDriver storageDriver = null;
         if(System.getenv("S3_BUCKET")!=null) {
             storageDriver=new S3StorageDriver(System.getenv("S3_BUCKET"),System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") );
@@ -92,7 +92,13 @@ public class Worker {
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + " with date: " + date);
 
-                    TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    TypeDescription typeDescription = null;
+                    try {
+                        typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    } catch (Exception e) {
+                        // TODO cleanup orcs
+                        throw e;
+                    }
                     if(typeDescription!=null)
                         drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
                     else {

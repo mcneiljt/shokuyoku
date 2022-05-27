@@ -4,8 +4,10 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.orc.TypeDescription;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 
 import java.util.List;
 
@@ -26,29 +28,39 @@ public class HiveDescriptionProvider extends MemoryDescriptionProvider {
         }
     }
 
-    public  TypeDescription getInstance(String databaseName, String eventName) {
+    public TypeDescription getInstance(String databaseName, String eventName) throws Exception {
         TypeDescription typeDescription = super.getInstance(databaseName, eventName);
-        if (typeDescription!=null){
+        if (typeDescription != null) {
             return typeDescription;
         }
 
+        String tableName = eventName.substring(eventName.lastIndexOf(".") + 1);
+        List<FieldSchema> fieldSchemas;
         try {
             // TODO maybe this should be in the caller
-            String tableName = eventName.substring(eventName.lastIndexOf(".")+1);
-            List<FieldSchema> a = hiveMetaStoreClient.getSchema(databaseName, tableName);
-            TypeDescription td=  TypeDescription.createStruct();
-            for(FieldSchema fieldSchma : a){
-                TypeDescription fieldTypeDescription = TypeDescription.fromString(fieldSchma.getType());
-                if(fieldTypeDescription!=null) {
-                    td.addField(fieldSchma.getName(), fieldTypeDescription);
-                }
+            fieldSchemas = hiveMetaStoreClient.getSchema(databaseName, tableName);
+        } catch (TTransportException e) {
+            hiveMetaStoreClient.close();
+            hiveMetaStoreClient.reconnect();
+            // TODO maybe this should be in the caller
+            fieldSchemas = hiveMetaStoreClient.getSchema(databaseName, tableName);
+            try {
+                fieldSchemas = hiveMetaStoreClient.getSchema(databaseName, tableName);
+            } catch (UnknownTableException exception) {
+                return null;
             }
-            return td;
-        } catch (TException e) {
-            e.printStackTrace();
+        } catch (UnknownTableException e) {
+            return null;
         }
+        TypeDescription td = TypeDescription.createStruct();
+        for (FieldSchema fieldSchma : fieldSchemas) {
+            TypeDescription fieldTypeDescription = TypeDescription.fromString(fieldSchma.getType());
+            if (fieldTypeDescription != null) {
+                td.addField(fieldSchma.getName(), fieldTypeDescription);
+            }
+        }
+        return td;
         // TODO probably should escalate the exception
-        return null;
     }
 
     private HiveMetaStoreClient hiveMetaStoreClient = null;

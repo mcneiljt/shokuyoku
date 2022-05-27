@@ -31,7 +31,12 @@ public class App {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    worker.start();
+                    try {
+                        worker.start();
+                    } catch (Exception e) {
+                        // TODO In standalone mode, safely stop other running workers (ie filter)
+                        throw new RuntimeException(e);
+                    }
 
                 }
             }).start();
