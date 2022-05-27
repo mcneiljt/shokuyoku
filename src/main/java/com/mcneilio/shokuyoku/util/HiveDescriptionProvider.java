@@ -40,7 +40,6 @@ public class HiveDescriptionProvider extends MemoryDescriptionProvider {
             // TODO maybe this should be in the caller
             fieldSchemas = hiveMetaStoreClient.getSchema(databaseName, tableName);
         } catch (TTransportException e) {
-            hiveMetaStoreClient.close();
             hiveMetaStoreClient.reconnect();
             // TODO maybe this should be in the caller
             fieldSchemas = hiveMetaStoreClient.getSchema(databaseName, tableName);
