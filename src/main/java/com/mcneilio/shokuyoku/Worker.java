@@ -109,7 +109,13 @@ public class Worker {
 
                 EventDriver eventDriver = drivers.get(eventName+date);
                 if (eventDriver!=null) {
-                    eventDriver.addMessage(msg);
+                    try {
+                        eventDriver.addMessage(msg);
+                    }catch(Exception ex){
+                        System.err.println("Error handling event: "+f.getTopic());
+                        System.err.println(f.getMessage());
+                        throw ex;
+                    }
                 }
                 currentOffset = record.offset();
             }

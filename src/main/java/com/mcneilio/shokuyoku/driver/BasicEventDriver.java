@@ -52,10 +52,14 @@ public class BasicEventDriver implements EventDriver {
         int batchPosition = batch.size++;
 
         msg.keys().forEachRemaining(key -> {
+            if(msg.isNull(key)){
+                return;
+            }
             if(columns.containsKey(key)) {
-                if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
-                    ((BytesColumnVector) columns.get(key)).setRef(batchPosition,msg.getString(key).getBytes(),
-                            0,msg.getString(key).getBytes().length);
+                if(columns.get(key) instanceof BytesColumnVector) {
+                    byte[] strBytes = msg.get(key).toString().getBytes();
+                    ((BytesColumnVector) columns.get(key)).setRef(batchPosition,strBytes,
+                            0,strBytes.length);
                     columns.get(key).isNull[batchPosition] = false;
                 }
                 else if(columns.get(key) instanceof LongColumnVector) {
@@ -155,7 +159,7 @@ public class BasicEventDriver implements EventDriver {
             }
             this.writer.addRowBatch(batch);
             batch.reset();
-            nullColumns();
+            nullColumnsV2();
         }
         catch (IOException e) {
             System.out.println("Error writing orc file");
