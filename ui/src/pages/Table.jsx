@@ -110,7 +110,9 @@ export default function EventTypeEditor({newEventType}) {
       location: location.replace('{table_name}', tableName),
     };
 
+    // TODO: create table
     fetch(`/schemas/${databaseName}/${encodeURIComponent(tableName)}`, {
+      // event type existing means it was fetched so update, otherwise its null so create
       method: eventType ? 'PUT' : 'POST', // or 'PUT'
       headers: {
         'Content-Type': 'application/json',

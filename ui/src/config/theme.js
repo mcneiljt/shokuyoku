@@ -29,8 +29,18 @@ export const theme = {
   },
   colors: {
     modes: {
-      light: {background: 'pink', buttonBackground: 'pink'},
-      dark: {background: 'red', buttonBackground: 'red'},
+      light: {
+        background: '#ffeff8',
+        fontColor: '#220113',
+        cardBackground: '#fffafd',
+        buttonBackground: 'pink',
+        navColor: '#d3418f',
+        borderColor: '#fce2f0',
+        headingColor: '#915f8a',
+      },
+      dark: {
+        // todo
+      },
     },
   },
   radii: {
@@ -38,5 +48,8 @@ export const theme = {
     medium: '8px',
     large: '16px',
     round: '100%',
+  },
+  shadows: {
+    test: '0 0 8px 2px rgb(255 0 0 / 10%)',
   },
 };
