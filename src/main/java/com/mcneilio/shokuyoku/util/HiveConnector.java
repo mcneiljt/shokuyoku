@@ -34,6 +34,18 @@ public class HiveConnector {
         this.gson = new Gson();
     }
 
+    public synchronized  void addPartition(String dbName, String eventType, List<String> values){
+        Partition partition = new Partition();
+        partition.setDbName(dbName);
+        partition.setTableName(eventType);
+        partition.setValues(values);
+        try {
+            client.add_partition(partition);
+        } catch (TException e) {
+            e.printStackTrace();
+        }
+    }
+
     public synchronized String listDatabases() {
         try {
             List<String> tables =    client.getAllDatabases();
