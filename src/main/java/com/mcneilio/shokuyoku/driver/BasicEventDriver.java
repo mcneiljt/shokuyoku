@@ -3,7 +3,6 @@ package com.mcneilio.shokuyoku.driver;
 
 import com.mcneilio.shokuyoku.util.Statsd;
 import com.timgroup.statsd.StatsDClient;
-import javolution.io.Struct;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -12,20 +11,20 @@ import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Paths;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
@@ -217,6 +216,38 @@ public class BasicEventDriver implements EventDriver {
         });
     }
 
+    interface BoolFunction {
+        boolean run(Object str);
+    }
+
+    private boolean hasCommonType(JSONArray arr, BoolFunction type){
+        for(int idx=0;idx<arr.length();idx++){
+            if(!type.run(arr.get(idx)))
+                return false;
+        }
+        return true;
+    }
+
+
+    private byte[] bytesForObject(Object obj){
+        if(obj instanceof String) {
+            return ((String)obj).getBytes();
+        }else if(obj instanceof Integer) {
+            return ((Integer)obj).toString().getBytes();
+        }else if(obj instanceof BigDecimal) {
+            return ((BigDecimal)obj).toString().getBytes();
+        }else if(obj instanceof Long) {
+            return ((Long)obj).toString().getBytes();
+        }else if(obj instanceof Boolean) {
+            return ((Boolean)((Boolean) obj).booleanValue() ? "true" : "false").toString().getBytes();
+        } else if(obj instanceof JSONArray) {
+            return ((JSONArray)obj).toString().getBytes();
+        }else {
+            System.out.println("ASD");
+            // TODO: Are there other possible types?
+        }
+        return null;
+    }
 
     /**
      * The goal here is to tie column vectors to the keys, so they can be easily referenced
@@ -256,20 +287,8 @@ public class BasicEventDriver implements EventDriver {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         BytesColumnVector bytesColumnVector = (BytesColumnVector) columnVector;
-                        byte[] bytes= null;
-                        if(obj instanceof String) {
-                            bytes =((String)obj).getBytes();
-                        }else if(obj instanceof Integer) {
-                            bytes =((Integer)obj).toString().getBytes();
-                        }else if(obj instanceof BigDecimal) {
-                            bytes =((BigDecimal)obj).toString().getBytes();
-                        }else if(obj instanceof Long) {
-                            bytes =((Long)obj).toString().getBytes();
-                        }else if(obj instanceof Boolean) {
-                            bytes =((Boolean)((Boolean) obj).booleanValue() ? "true" : "false").toString().getBytes();
-                        } else {
-                              // TODO: Are there other possible types?
-                        }
+                        byte[] bytes= bytesForObject(obj);//null;
+
                         bytesColumnVector.setRef(idx, bytes, 0,bytes.length);
                         bytesColumnVector.isNull[idx]=false;
                     }
@@ -300,7 +319,10 @@ public class BasicEventDriver implements EventDriver {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
                         byte[] bytes= null;
                         if(obj instanceof Integer) {
-                            longColumnVector.vector[idx] = (Integer)obj;
+                            longColumnVector.vector[idx] = ((Integer)obj).shortValue();
+                            longColumnVector.isNull[idx] = false;
+                        }else if(obj instanceof Long) {
+                            longColumnVector.vector[idx] = ((Long)obj).shortValue();
                             longColumnVector.isNull[idx] = false;
                         }else{
                             longColumnVector.isNull[idx]=true;
@@ -316,6 +338,9 @@ public class BasicEventDriver implements EventDriver {
                         byte[] bytes= null;
                         if(obj instanceof Integer) {
                             longColumnVector.vector[idx] = (Integer)obj;
+                            longColumnVector.isNull[idx] = false;
+                        }else if(obj instanceof Long) {
+                            longColumnVector.vector[idx] = (Long)obj;
                             longColumnVector.isNull[idx] = false;
                         } else if(obj instanceof BigDecimal) {
                             longColumnVector.vector[idx] = ((BigDecimal)obj).longValue();
@@ -334,6 +359,9 @@ public class BasicEventDriver implements EventDriver {
                         byte[] bytes= null;
                         if(obj instanceof Integer) {
                             longColumnVector.vector[idx] = (Integer)obj;
+                            longColumnVector.isNull[idx] = false;
+                        }else if(obj instanceof Long) {
+                            longColumnVector.vector[idx] = (Long)obj;
                             longColumnVector.isNull[idx] = false;
                         } else if(obj instanceof BigDecimal) {
                             longColumnVector.vector[idx] = ((BigDecimal)obj).longValue();
@@ -405,9 +433,7 @@ public class BasicEventDriver implements EventDriver {
                         } else if(obj instanceof BigDecimal) {
                             doubleColumnVector.vector[idx]=((BigDecimal)obj).doubleValue();
                             doubleColumnVector.isNull[idx]=false;
-
                         } else{
-                            System.out.println("asd");
                             doubleColumnVector.isNull[idx]=true;
                         }
                     }
@@ -417,12 +443,6 @@ public class BasicEventDriver implements EventDriver {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         BytesColumnVector bytesColumnVector = (BytesColumnVector) columnVector;
-//                        byte[] bytes= null;
-//                        if(obj instanceof Boolean) {
-//                            bytes =((String)obj).getBytes();
-//                        }else{
-//                            System.out.println("asd");
-//                        }
                         bytesColumnVector.isNull[idx]=true;
                     }
                 };
@@ -431,21 +451,567 @@ public class BasicEventDriver implements EventDriver {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         TimestampColumnVector timestampColumnVector = (TimestampColumnVector) columnVector;
-                        //byte[] bytes= null;
                         if(obj instanceof Long) {
                             timestampColumnVector.time[idx] = (Long)obj;
                             timestampColumnVector.isNull[idx]=false;
-
                         }else{
-                            System.out.println("asd");
                             timestampColumnVector.isNull[idx]=true;
 
                         }
                     }
                 };
-            } else{
-                System.out.println("asd");
+            }else if(typeDescription.toString().equals("array<boolean>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector booleanListColumnVector = (ListColumnVector) columnVector;
 
+                        if(obj instanceof String || obj instanceof BigDecimal) {
+                           booleanListColumnVector.isNull[idx]=true;
+                        } else if(obj instanceof Boolean) {
+                            booleanListColumnVector.isNull[idx]=false;
+                            int offset = booleanListColumnVector.childCount;
+                            booleanListColumnVector.offsets[idx] = offset;
+                            booleanListColumnVector.lengths[idx] = 1;
+                            booleanListColumnVector.childCount += 1;
+                            booleanListColumnVector.child.ensureSize(booleanListColumnVector.childCount, true);
+                            ((LongColumnVector) booleanListColumnVector.child).vector[offset]= (Boolean)obj ? 1 : 0;
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Boolean)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = booleanListColumnVector.childCount;
+                                booleanListColumnVector.offsets[idx] = offset;
+                                booleanListColumnVector.lengths[idx] = msgArray.length();
+                                booleanListColumnVector.childCount += msgArray.length();
+                                booleanListColumnVector.child.ensureSize(booleanListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) booleanListColumnVector.child).vector[offset+i]= msgArray.getBoolean(idx) ? 1 : 0;
+                                }
+                            } else {
+                                booleanListColumnVector.isNull[idx]=true;
+                            }
+                        }else if(obj instanceof Integer || obj instanceof Long) {
+                            booleanListColumnVector.isNull[idx]=true;
+                        }else{
+                            booleanListColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<float>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector floatColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+                            //timestampColumnVector.time[idx] = (Long)obj;
+                            floatColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof BigDecimal) {
+
+                            int offset = floatColumnVector.childCount;
+                            floatColumnVector.isNull[idx] = false;
+                            floatColumnVector.offsets[idx] = offset;
+                            floatColumnVector.lengths[idx] = 1;
+                            floatColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal)obj).doubleValue();
+
+
+                        }else if(obj instanceof Integer) {
+
+                            int offset = floatColumnVector.childCount;
+                            floatColumnVector.isNull[idx] = false;
+                            floatColumnVector.offsets[idx] = offset;
+                            floatColumnVector.lengths[idx] = 1;
+                            floatColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=(Integer)obj;
+
+
+                        }else if(obj instanceof Long) {
+
+                            int offset = floatColumnVector.childCount;
+                            floatColumnVector.isNull[idx] = false;
+                            floatColumnVector.offsets[idx] = offset;
+                            floatColumnVector.lengths[idx] = 1;
+                            floatColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=(Long)obj;
+
+
+                        }else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Float || a instanceof Integer  || a instanceof Long|| a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = floatColumnVector.childCount;
+                                floatColumnVector.offsets[idx] = offset;
+                                floatColumnVector.lengths[idx] = msgArray.length();
+                                floatColumnVector.childCount += msgArray.length();
+                                floatColumnVector.child.ensureSize(floatColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((DoubleColumnVector) floatColumnVector.child).vector[offset+i] = msgArray.getFloat(i);
+                                }
+                            }else {
+                                floatColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            floatColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<date>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector dateListColumnVector = (ListColumnVector) columnVector;
+                        if(obj instanceof String) {
+                            try {
+                                int offset = dateListColumnVector.childCount;
+                                long tmp = LocalDate.parse((String) obj).toEpochDay();
+
+                                dateListColumnVector.isNull[idx] = false;
+
+                                dateListColumnVector.offsets[idx] = offset;
+                                dateListColumnVector.lengths[idx] = 1;
+                                dateListColumnVector.childCount += 1;
+                                dateListColumnVector.child.ensureSize(dateListColumnVector.childCount, true);
+
+                                ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=tmp;
+
+                            }catch (DateTimeParseException ex) {
+                                dateListColumnVector.isNull[idx] = true;
+                            }
+
+                        }else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof String)){
+                                try {
+                                    JSONArray msgArray = (JSONArray) obj;
+                                    long[] longs = new long[msgArray.length()];
+                                    for(int i=0; i<msgArray.length(); i++) {
+                                        longs[i] = LocalDate.parse(msgArray.getString(i)).toEpochDay();
+                                    }
+                                    int offset = dateListColumnVector.childCount;
+                                    dateListColumnVector.offsets[idx] = offset;
+                                    dateListColumnVector.lengths[idx] = msgArray.length();
+                                    dateListColumnVector.childCount += msgArray.length();
+                                    dateListColumnVector.child.ensureSize(dateListColumnVector.childCount, true);
+                                    for(int i=0; i<longs.length; i++) {
+                                        ((LongColumnVector) dateListColumnVector.child).vector[offset+i] = longs[i];
+                                    }
+                                    dateListColumnVector.isNull[idx] = false;
+
+                                }catch (DateTimeParseException ex) {
+                                    dateListColumnVector.isNull[idx] = true;
+                                }
+                            }else {
+                                dateListColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            dateListColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<string>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector timestampColumnVector = (ListColumnVector) columnVector;
+
+                        if (obj instanceof JSONArray){
+                            JSONArray msgArray = (JSONArray) obj;
+                            byte[][] bytes = new byte[msgArray.length()][];
+                            long total=0;
+                            for(int i=0; i<msgArray.length(); i++) {
+                                bytes[i] = bytesForObject(msgArray.get(i));
+                                total+=bytes[i].length;
+                            }
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.lengths[idx] = msgArray.length();
+                            timestampColumnVector.childCount += msgArray.length();
+                            timestampColumnVector.child.ensureSize(timestampColumnVector.childCount, true);
+                            for(int i=0; i<bytes.length; i++) {
+                                ((BytesColumnVector) timestampColumnVector.child).isNull[offset+i]=false;
+                                ((BytesColumnVector) timestampColumnVector.child).setRef(offset+i,bytes[i],0,bytes[i].length);
+                            }
+                            timestampColumnVector.isNull[idx] = false;
+
+                        }else  {
+                            byte[] bytes = bytesForObject(obj);
+                                int offset = timestampColumnVector.childCount;
+
+
+                                timestampColumnVector.offsets[idx] = offset;
+                                timestampColumnVector.lengths[idx] = 1;
+                                timestampColumnVector.childCount += 1;
+                                timestampColumnVector.child.ensureSize(timestampColumnVector.childCount, true);
+                                    ((BytesColumnVector) timestampColumnVector.child).setRef(offset,bytes,0,bytes.length);
+                                timestampColumnVector.isNull[idx] = false;
+                        }
+
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<tinyint>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector timestampColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+                            timestampColumnVector.isNull[idx]=true;
+                        } else if(obj instanceof BigDecimal) {
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal)obj).longValue();
+                        } else if(obj instanceof Integer) {
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Integer)obj);
+                        } else if(obj instanceof Long) {
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Long)obj);
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long|| a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = timestampColumnVector.childCount;
+                                timestampColumnVector.offsets[idx] = offset;
+                                timestampColumnVector.lengths[idx] = msgArray.length();
+                                timestampColumnVector.childCount += msgArray.length();
+                                timestampColumnVector.child.ensureSize(timestampColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) timestampColumnVector.child).vector[i] = msgArray.getInt(i);
+                                }
+                            }else {
+                                timestampColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            timestampColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<double>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector doubleListColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+                            doubleListColumnVector.isNull[idx]=true;
+                        } else if(obj instanceof BigDecimal) {
+                            int offset = doubleListColumnVector.childCount;
+                            doubleListColumnVector.isNull[idx] = false;
+                            doubleListColumnVector.offsets[idx] = offset;
+                            doubleListColumnVector.lengths[idx] = 1;
+                            doubleListColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal)obj).doubleValue();
+                        }  else if(obj instanceof Integer) {
+                            int offset = doubleListColumnVector.childCount;
+                            doubleListColumnVector.isNull[idx] = false;
+                            doubleListColumnVector.offsets[idx] = offset;
+                            doubleListColumnVector.lengths[idx] = 1;
+                            doubleListColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Integer)obj);
+                        }  else if(obj instanceof Long) {
+                            int offset = doubleListColumnVector.childCount;
+                            doubleListColumnVector.isNull[idx] = false;
+                            doubleListColumnVector.offsets[idx] = offset;
+                            doubleListColumnVector.lengths[idx] = 1;
+                            doubleListColumnVector.childCount += 1;
+                            ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Long)obj);
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long || a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = doubleListColumnVector.childCount;
+                                doubleListColumnVector.offsets[idx] = offset;
+                                doubleListColumnVector.lengths[idx] = msgArray.length();
+                                doubleListColumnVector.childCount += msgArray.length();
+                                doubleListColumnVector.child.ensureSize(doubleListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((DoubleColumnVector) doubleListColumnVector.child).vector[offset+i] = msgArray.getDouble(i);
+                                }
+                            }else {
+                                doubleListColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            doubleListColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().startsWith("array<decimal")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector timestampColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String) {
+                            timestampColumnVector.isNull[idx]=true;
+                        } else if(obj instanceof BigDecimal) {
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((DecimalColumnVector)((ListColumnVector) columnVector).child).vector[offset]= new HiveDecimalWritable(HiveDecimal.create((BigDecimal)obj));
+                        }else if(obj instanceof Integer) {
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((DecimalColumnVector)((ListColumnVector) columnVector).child).vector[offset]= new HiveDecimalWritable(HiveDecimal.create((Integer)obj));
+                        }else if(obj instanceof Long) {
+                            //timestampColumnVector.time[idx] = (Long)obj;
+                            //    timestampColumnVector.isNull[idx]=true;
+                            int offset = timestampColumnVector.childCount;
+                            timestampColumnVector.isNull[idx] = false;
+                            timestampColumnVector.offsets[idx] = offset;
+                            timestampColumnVector.lengths[idx] = 1;
+                            timestampColumnVector.childCount += 1;
+                            ((DecimalColumnVector)((ListColumnVector) columnVector).child).vector[offset]= new HiveDecimalWritable(HiveDecimal.create((Long)obj));
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long || a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = timestampColumnVector.childCount;
+                                timestampColumnVector.offsets[idx] = offset;
+                                timestampColumnVector.lengths[idx] = msgArray.length();
+                                timestampColumnVector.childCount += msgArray.length();
+                                timestampColumnVector.child.ensureSize(timestampColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((DecimalColumnVector) timestampColumnVector.child).vector[offset+i] = new HiveDecimalWritable(HiveDecimal.create(msgArray.getDouble(i)));
+                                }
+                            }else {
+                                timestampColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            timestampColumnVector.isNull[idx]=true;
+
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<int>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector intListColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+                         //   timestampColumnVector.time[idx] = (Long)obj;
+                            intListColumnVector.isNull[idx]=true;
+
+                        } else if (obj instanceof BigDecimal) {
+                            int offset = intListColumnVector.childCount;
+                            intListColumnVector.isNull[idx] = false;
+                            intListColumnVector.offsets[idx] = offset;
+                            intListColumnVector.lengths[idx] = 1;
+                            intListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal) obj).longValue();
+                        } else if (obj instanceof Integer) {
+                            int offset = intListColumnVector.childCount;
+                            intListColumnVector.isNull[idx] = false;
+                            intListColumnVector.offsets[idx] = offset;
+                            intListColumnVector.lengths[idx] = 1;
+                            intListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Integer) obj);
+                        }else if (obj instanceof Long) {
+                            int offset = intListColumnVector.childCount;
+                            intListColumnVector.isNull[idx] = false;
+                            intListColumnVector.offsets[idx] = offset;
+                            intListColumnVector.lengths[idx] = 1;
+                            intListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Long) obj).intValue();
+                        }else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long|| a instanceof BigDecimal) ){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = intListColumnVector.childCount;
+                                intListColumnVector.offsets[idx] = offset;
+                                intListColumnVector.lengths[idx] = msgArray.length();
+                                intListColumnVector.childCount += msgArray.length();
+                                intListColumnVector.child.ensureSize(intListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) intListColumnVector.child).vector[offset+i] = msgArray.getInt(i);
+                                }
+                            }else {
+                                intListColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            intListColumnVector.isNull[idx]=true;
+
+                        }
+                    }
+                };
+            }  else if(typeDescription.toString().equals("array<timestamp>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector timestampListColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String) {
+                          //  timestampColumnVector.time[idx] = (Long)obj;
+                            timestampListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof BigDecimal){
+                            // don't try and make a timestamp out of a bigdecimal
+                            timestampListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof Integer){
+                            // don't try and make a timestamp out of a Integer
+                            timestampListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof Boolean){
+                            // don't try and make a timestamp out of a Boolean
+                            timestampListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof Long) {
+
+                            int offset = timestampListColumnVector.childCount;
+                            timestampListColumnVector.isNull[idx] = false;
+                            timestampListColumnVector.offsets[idx] = offset;
+                            timestampListColumnVector.lengths[idx] = 1;
+                            timestampListColumnVector.childCount += 1;
+                            ((TimestampColumnVector)((ListColumnVector) columnVector).child).time[offset]=((Long) obj);
+
+                        }else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Long)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = timestampListColumnVector.childCount;
+                                timestampListColumnVector.offsets[idx] = offset;
+                                timestampListColumnVector.lengths[idx] = msgArray.length();
+                                timestampListColumnVector.childCount += msgArray.length();
+                                timestampListColumnVector.child.ensureSize(timestampListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((TimestampColumnVector) timestampListColumnVector.child).time[offset+i]= msgArray.getLong(i);//, ((String) msgArray.get(i)).getBytes(),0,((String) msgArray.get(i)).getBytes().length);
+                                }
+                            }else {
+                                timestampListColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            timestampListColumnVector.isNull[idx]=true;
+
+                        }
+                    }
+                };
+            } else if(typeDescription.toString().equals("array<smallint>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector smallintListColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+                          //  timestampColumnVector.time[idx] = (Long)obj;
+                            smallintListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long|| a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = smallintListColumnVector.childCount;
+                                smallintListColumnVector.offsets[idx] = offset;
+                                smallintListColumnVector.lengths[idx] = msgArray.length();
+                                smallintListColumnVector.childCount += msgArray.length();
+                                smallintListColumnVector.child.ensureSize(smallintListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) smallintListColumnVector.child).vector[offset+i] = (short)msgArray.getInt(i);//, ((String) msgArray.get(i)).getBytes(),0,((String) msgArray.get(i)).getBytes().length);
+                                }
+                            }else {
+                                smallintListColumnVector.isNull[idx]=true;
+                            }
+                        }else if(obj instanceof BigDecimal) {
+                            int offset = smallintListColumnVector.childCount;
+                            smallintListColumnVector.isNull[idx] = false;
+                            smallintListColumnVector.offsets[idx] = offset;
+                            smallintListColumnVector.lengths[idx] = 1;
+                            smallintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal) obj).shortValue();
+                        }else if(obj instanceof Integer) {
+                            int offset = smallintListColumnVector.childCount;
+                            smallintListColumnVector.isNull[idx] = false;
+                            smallintListColumnVector.offsets[idx] = offset;
+                            smallintListColumnVector.lengths[idx] = 1;
+                            smallintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Integer) obj).shortValue();
+                        }else if(obj instanceof Long) {
+                            int offset = smallintListColumnVector.childCount;
+                            smallintListColumnVector.isNull[idx] = false;
+                            smallintListColumnVector.offsets[idx] = offset;
+                            smallintListColumnVector.lengths[idx] = 1;
+                            smallintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Long) obj).shortValue();
+                        }else{
+                            smallintListColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            }  else if(typeDescription.toString().equals("array<bigint>")) {
+                orcers[i] = new JSONToOrc() {
+                    @Override
+                    public void addObject(ColumnVector columnVector, int idx, Object obj) {
+                        ListColumnVector bigintListColumnVector = (ListColumnVector) columnVector;
+                        //byte[] bytes= null;
+                        if(obj instanceof String || obj instanceof Boolean) {
+             //               timestampColumnVector.time[idx] = (Long)obj;
+                            bigintListColumnVector.isNull[idx]=true;
+
+                        } else if(obj instanceof BigDecimal) {
+                            int offset = bigintListColumnVector.childCount;
+                            bigintListColumnVector.isNull[idx] = false;
+                            bigintListColumnVector.offsets[idx] = offset;
+                            bigintListColumnVector.lengths[idx] = 1;
+                            bigintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal) obj).longValue();
+                        } else if(obj instanceof Integer) {
+                            int offset = bigintListColumnVector.childCount;
+                            bigintListColumnVector.isNull[idx] = false;
+                            bigintListColumnVector.offsets[idx] = offset;
+                            bigintListColumnVector.lengths[idx] = 1;
+                            bigintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Integer) obj);
+                        } else if(obj instanceof Long) {
+                            int offset = bigintListColumnVector.childCount;
+                            bigintListColumnVector.isNull[idx] = false;
+                            bigintListColumnVector.offsets[idx] = offset;
+                            bigintListColumnVector.lengths[idx] = 1;
+                            bigintListColumnVector.childCount += 1;
+                            ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((Long) obj);
+                        } else if(obj instanceof Integer) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Boolean)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = bigintListColumnVector.childCount;
+                                bigintListColumnVector.offsets[idx] = offset;
+                                bigintListColumnVector.lengths[idx] = msgArray.length();
+                                bigintListColumnVector.childCount += msgArray.length();
+                                bigintListColumnVector.child.ensureSize(bigintListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) bigintListColumnVector.child).vector[offset+i] = msgArray.getLong(i);//, ((String) msgArray.get(i)).getBytes(),0,((String) msgArray.get(i)).getBytes().length);
+                                }
+                            }else {
+                                bigintListColumnVector.isNull[idx]=true;
+                            }
+                        } else if(obj instanceof JSONArray) {
+                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Integer || a instanceof Long|| a instanceof BigDecimal)){
+                                JSONArray msgArray = (JSONArray) obj;
+                                int offset = bigintListColumnVector.childCount;
+                                bigintListColumnVector.offsets[idx] = offset;
+                                bigintListColumnVector.lengths[idx] = msgArray.length();
+                                bigintListColumnVector.childCount += msgArray.length();
+                                bigintListColumnVector.child.ensureSize(bigintListColumnVector.childCount, true);
+                                for(int i=0; i<msgArray.length(); i++) {
+                                    ((LongColumnVector) bigintListColumnVector.child).vector[offset+i] = msgArray.getLong(i);//, ((String) msgArray.get(i)).getBytes(),0,((String) msgArray.get(i)).getBytes().length);
+                                }
+                            }else {
+                                bigintListColumnVector.isNull[idx]=true;
+                            }
+                        }else{
+                            bigintListColumnVector.isNull[idx]=true;
+                        }
+                    }
+                };
+            }   else{
+                System.out.println("asd");
             }
         }
         this.columns = columns;
