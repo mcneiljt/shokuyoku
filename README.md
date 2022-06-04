@@ -19,6 +19,34 @@ LISTEN_ADDR environment variable should contain the address to listen on. e.g. l
 LISTEN_PORT environment variable should contain the port to listen on e.g. 8080
 ```
 
+#### For Local Standalone mode
+```
+CHECK_SIMILAR=true
+ENDIAN=little
+FLUSH_MINUTES=5
+HIVE_DATABASE=events
+HIVE_URL=thrift://localhost:9083
+IGNORE_NULLS=true
+KAFKA_ERROR_TOPIC=error_firehose
+KAFKA_GROUP_ID=filter_2
+KAFKA_INPUT_TOPIC=firehose
+KAFKA_OUTPUT_TOPIC=firehose_output
+KAFKA_POLL_DURATION_MS=5000
+KAFKA_SERVERS=localhost:9092
+LISTEN_ADDR=0.0.0.0
+LISTEN_PORT=3004
+ORC_BATCH_SIZE=1000
+S3_BUCKET=analytics
+S3_PREFIX=test1
+SERVICE_KAFKA_TOPIC=firehose
+WORKER_KAFKA_TOPIC=firehose_output
+DATABASE_URL=jdbc:mysql://localhost:3306/shokuyoku
+ERROR_WORKER_KAFKA_TOPIC=error_firehose
+DATABASE_USERNAME=admin
+DATABASE_PASSWORD=admin
+
+```
+
 ### Start Worker
 `docker run shokuyoku:test worker`
 

@@ -38,10 +38,7 @@ public class BasicEventDriverTest {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("count", 1);
         basicEventDriver.addMessage(jsonObject);
-
         basicEventDriver.flush(true);
-
-        System.out.println("ASD");
 
         String[] pathnames = new File(basePath).list();
 
@@ -50,7 +47,6 @@ public class BasicEventDriverTest {
 
         int rowCount = 0;
 
-        //reader.
 
         RecordReader records = reader.rows(reader.options());
         VectorizedRowBatch batch = reader.getSchema().createRowBatch(1000);
@@ -68,7 +64,6 @@ public class BasicEventDriverTest {
 //                rows.add(map);
             }
         }
-        System.out.println("ASD");
         assertThat(rowCount).isEqualTo(1);
     }
 }
