@@ -126,6 +126,10 @@ public class Filter {
             statsd.histogram("filter.batch_size", records.count(), new String[]{"env:"+System.getenv("STATSD_ENV")});
 
             for (ConsumerRecord<String,byte[]> record : records) {
+                if (record.value() == null) {
+                    System.err.println("Found a NULL record. Skipping...");
+                    continue;
+                }
                 Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
                 int hadDot = eventName.lastIndexOf(".");
