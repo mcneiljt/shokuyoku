@@ -155,7 +155,7 @@ public class BasicEventDriver implements EventDriver {
             }
             this.writer.addRowBatch(batch);
             batch.reset();
-            nullColumnsV2();
+            nullColumns();
         }
         catch (IOException e) {
             System.out.println("Error writing orc file");
