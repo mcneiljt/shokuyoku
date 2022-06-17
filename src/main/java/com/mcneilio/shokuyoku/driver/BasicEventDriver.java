@@ -2,7 +2,6 @@ package com.mcneilio.shokuyoku.driver;
 
 
 import com.mcneilio.shokuyoku.util.Statsd;
-import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -12,9 +11,6 @@ import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,7 +38,7 @@ public class BasicEventDriver implements EventDriver {
         // TODO This env vars should probably be pulled out.
         this.batch = this.schema.createRowBatch(System.getenv("ORC_BATCH_SIZE") != null ? Integer.parseInt(System.getenv("ORC_BATCH_SIZE")) : 1000);
         setColumns();
-        nullColumnsV2();
+        nullColumns();
         this.statsd = Statsd.getInstance();
     }
 
@@ -171,18 +167,6 @@ public class BasicEventDriver implements EventDriver {
     }
 
     private void nullColumns() {
-        columns.forEach( (key, value) -> {
-            value.noNulls = false;
-            if(value instanceof LongColumnVector)
-                ((LongColumnVector) value).fillWithNulls();
-            else if(value instanceof BytesColumnVector)
-                ((BytesColumnVector) value).fillWithNulls();
-            //array and timestamp columnVectors don't provide fillWithNulls
-            //array and timestamp columnVectors appear to work with null values
-        });
-    }
-
-    private void nullColumnsV2() {
         columns.forEach( (key, value) -> {
             value.noNulls = false;
 

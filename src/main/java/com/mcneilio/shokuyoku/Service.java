@@ -1,6 +1,8 @@
 package com.mcneilio.shokuyoku;
 
+import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
+import com.mcneilio.shokuyoku.controller.Controller;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.model.*;
 import com.mcneilio.shokuyoku.util.DBUtil;
@@ -18,14 +20,17 @@ import io.undertow.util.Headers;
 import io.undertow.util.HttpString;
 import io.undertow.util.PathTemplateMatch;
 import org.apache.hadoop.hive.metastore.api.*;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.*;
 import org.hibernate.Session;
+import org.apache.kafka.common.TopicPartition;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.query.Query;
 import org.json.JSONObject;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -44,6 +49,7 @@ public class Service {
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
         this.producer = new KafkaProducer<>(props);
+        this.controller = new Controller();
     }
 
     protected void start() throws URISyntaxException, FileNotFoundException {
@@ -249,7 +255,21 @@ public class Service {
                             });
                     });
                 }
-            }))
+            })
+            .addPrefixPath("/kafka", Handlers.routing()
+                .get("/offsets", exchange -> {
+                    exchange.getResponseSender().send(gson.toJson(controller.getOffsets()));
+                    exchange.getResponseSender().close();
+                })
+                .put("/offsets", exchange -> {
+                    exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                        Type mapType = new TypeToken<Map<TopicPartition, OffsetAndMetadata>>() {}.getType();
+                        controller.setOffsets(gson.fromJson(new String(m), mapType));
+                        exchange.setStatusCode(202);
+                        exchange.getResponseSender().close();
+                    });
+                })
+            ))
             .build();
         server.start();
     }
@@ -272,6 +292,10 @@ public class Service {
             System.out.println("LISTEN_PORT environment variable should contain the port to listen on e.g. 8080");
             missingEnv = true;
         }
+        if(System.getenv("KAFKA_GROUP_ID") == null) {
+            System.out.println("KAFKA_GROUP_ID environment variable should contain the name of the Kafka group. e.g. shokuyoku");
+            missingEnv = true;
+        }
         if (missingEnv) {
             System.out.println("Missing required environment variable(s); exiting.");
             System.exit(1);
@@ -279,4 +303,5 @@ public class Service {
     }
 
     private final Producer<String, byte[]> producer;
+    private final Controller controller;
 }
