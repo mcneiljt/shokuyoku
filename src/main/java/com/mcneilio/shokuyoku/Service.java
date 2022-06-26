@@ -4,9 +4,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.mcneilio.shokuyoku.controller.Controller;
 import com.mcneilio.shokuyoku.format.Firehose;
-import com.mcneilio.shokuyoku.model.CreateTableRequest;
-import com.mcneilio.shokuyoku.model.EventType;
-import com.mcneilio.shokuyoku.model.EventTypeColumn;
+import com.mcneilio.shokuyoku.model.*;
 import com.mcneilio.shokuyoku.util.DBUtil;
 import com.mcneilio.shokuyoku.util.HiveConnector;
 import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
@@ -24,8 +22,10 @@ import io.undertow.util.PathTemplateMatch;
 import org.apache.hadoop.hive.metastore.api.*;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.*;
+import org.hibernate.Session;
 import org.apache.kafka.common.TopicPartition;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.query.Query;
 import org.json.JSONObject;
 
@@ -35,6 +35,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -63,12 +64,13 @@ public class Service {
 
         SessionFactory sessionFactory = DBUtil.getSessionFactory();
 
-        Path path = Paths.get((System.getenv("UI_PATH") != null ? System.getenv("UI_PATH"): "ui/build")+"/index.html");
+        Path path = Paths.get((System.getenv("UI_PATH") != null ? System.getenv("UI_PATH"): "ui/build"));
+        Path indexPath = Paths.get(path.toString(), "index.html");
         ResourceHandler staticServer = new ResourceHandler(new PathResourceManager(path, 100));
-        InputStream in = new BufferedInputStream(new FileInputStream(path.toFile()));
+        InputStream in = new BufferedInputStream(new FileInputStream(indexPath.toFile()));
         String indexHTML = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
 
-
+        Session writeSession = sessionFactory.openSession();
         Undertow server = Undertow.builder()
             .addHttpListener(Integer.parseInt(System.getenv("LISTEN_PORT")), System.getenv("LISTEN_ADDR"))
             .setHandler(Handlers.path().addPrefixPath("/types", Handlers.routing()
@@ -77,7 +79,25 @@ public class Service {
                     exchange.getResponseSender().send(gson.toJson(ShokuyokuTypes.getSupportedTypeStrings()));
                     exchange.getResponseSender().close();
                 })
-            ).addPrefixPath("/deltas", Handlers.routing().get("/event_type", exchange -> {
+            ).addPrefixPath("/batch_modifiers", Handlers.routing()
+                    .post("/", exchange -> {
+                        exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+
+                            BatchModifierRequest createTableRequest = gson.fromJson(new String(m), BatchModifierRequest.class);
+
+                            for (BatchModifierRequest.ColumnModifier modifier: createTableRequest.getModifiers()){
+                                EventTypeColumnModifier eventTypeColumnModifier = new EventTypeColumnModifier(new EventTypeColumn.EventTypeColumnKey(modifier.getEvent_type(), modifier.getName()), EventTypeColumnModifier.EventColumnModifierType.valueOf(modifier.getType().toUpperCase()), new Timestamp(System.currentTimeMillis()));
+                                Transaction trx = writeSession.beginTransaction();
+                                writeSession.persist(eventTypeColumnModifier);
+                                trx.commit();
+                            }
+
+                            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                            exchange.getResponseSender().send(gson.toJson(ShokuyokuTypes.getSupportedTypeStrings()));
+                            exchange.getResponseSender().close();
+                        });
+                    })
+                ).addPrefixPath("/deltas", Handlers.routing().get("/event_type", exchange -> {
 
                 Query q = sessionFactory.openSession().createQuery("select et from EventType et", EventType.class);
                 List<EventType> list = q.list();
@@ -113,7 +133,7 @@ public class Service {
                     });
                     exchange.getResponseSender().close();
                 })
-                .get("/{database}/{tableName}", exchange -> {
+                .get("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
@@ -130,7 +150,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .delete("/{database}/{tableName}", exchange -> {
+                .delete("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty()) {
@@ -139,7 +159,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .delete("/{database}/{tableName}/column/{columnName}", exchange -> {
+                .delete("/{database}/table/{tableName}/column/{columnName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     if (!params.getParameters().get("tableName").isEmpty() && !params.getParameters().get("columnName").isEmpty()) {
@@ -148,7 +168,7 @@ public class Service {
                         exchange.getResponseSender().send("{}\n");
                     exchange.getResponseSender().close();
                 })
-                .post("/{database}/{tableName}", exchange -> {
+                .post("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
@@ -160,13 +180,30 @@ public class Service {
                             hive.addTable(tbl);
                         } catch (Exception ex) {
                             System.out.println("ASD");
+                            ex.printStackTrace();
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
                         exchange.getResponseSender().close();
                     });
 
                 })
-                .put("/{database}/{tableName}", exchange -> {
+                    .post("/{database}/table/{tableName}/delete_columns", exchange -> {
+                        PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
+                        exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
+                        exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
+                            String[] columns = gson.fromJson(new String(m), String[].class);
+
+                            try {
+                                hive.dropColumns(params.getParameters().get("database"), params.getParameters().get("tableName"), columns);
+                            } catch (Exception ex) {
+                                System.out.println("ASD");
+                            }
+                            exchange.getResponseSender().send("might have accepted it" + "\n");
+                            exchange.getResponseSender().close();
+                        });
+
+                    })
+                .put("/{database}/table/{tableName}", exchange -> {
                     PathTemplateMatch params = exchange.getAttachment(PathTemplateMatch.ATTACHMENT_KEY);
                     exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "application/json");
                     exchange.getRequestReceiver().receiveFullBytes((e, m) -> {
@@ -183,14 +220,21 @@ public class Service {
                         exchange.getResponseSender().close();
                     });
                 }))
-                //.addPrefixPath("/statoc/", staticServer)
+                //.addPrefixPath("/static/", staticServer)
                 .addPrefixPath("/", new HttpHandler() {
                 @Override
                 public void handleRequest(HttpServerExchange httpServerExchange) throws Exception {
                     if (httpServerExchange.getRequestMethod().equals(new HttpString("GET"))) {
-                        pr.handleRequest(httpServerExchange);
-//                        httpServerExchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
-//                        httpServerExchange.getResponseSender().send(indexHTML);
+                        if(System.getenv("DEV_UI")!=null) {
+                            pr.handleRequest(httpServerExchange);
+                        }else {
+                            if (httpServerExchange.getRequestPath().startsWith("/static/")) {
+                                staticServer.handleRequest(httpServerExchange);
+                            }else{
+                                httpServerExchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/html");
+                                httpServerExchange.getResponseSender().send(indexHTML);
+                            }
+                        }
 
                         return;
                     }

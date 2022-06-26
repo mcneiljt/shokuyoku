@@ -126,7 +126,11 @@ public class ErrorWorker {
                                     System.out.println("Unsupported Column Type2: " + cl);
                                 }
 
-                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), ShokuyokuTypes.getOrcStringForClass(cl), new Timestamp(System.currentTimeMillis()));
+	
+				String inferredType =ShokuyokuTypes.getOrcStringForClass(cl);
+				inferredType = inferredType !=null ? inferredType : ("Unknown Type: "+cl.toString());
+
+                                eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), inferredType, new Timestamp(System.currentTimeMillis()));
 
                                 Transaction trx = writeSession.beginTransaction();
                                 writeSession.persist(eventTypeColumn);
@@ -179,6 +183,11 @@ public class ErrorWorker {
                             }
                             return false;
                         }
+
+                        @Override
+                        public Object modifyColumn(String str, Object o) {
+                            return o;
+                        }
                     }, false, Collections.singleton("properties"));
 
                     if(errorColumns.size()>0)
@@ -194,13 +203,13 @@ public class ErrorWorker {
                                     eventTypeColumn = new EventTypeColumn(new EventTypeColumn.EventTypeColumnKey(eventName, columnName), columnE[1], new Timestamp(System.currentTimeMillis()));
 
                                     Transaction trx = writeSession.beginTransaction();
-                                    session.persist(eventTypeColumn);
+                                    writeSession.persist(eventTypeColumn);
                                     trx.commit();
                                 } else {
                                     eventTypeColumn.setLastError(new Timestamp(System.currentTimeMillis()));
 
                                     Transaction trx = writeSession.beginTransaction();
-                                    session.merge(eventTypeColumn);
+                                    writeSession.merge(eventTypeColumn);
                                     trx.commit();
                                 }
                             }

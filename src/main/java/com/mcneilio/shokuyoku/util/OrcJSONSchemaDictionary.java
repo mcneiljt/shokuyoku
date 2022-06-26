@@ -1,5 +1,6 @@
 package com.mcneilio.shokuyoku.util;
 
+import com.mcneilio.shokuyoku.model.EventTypeColumnModifier;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -13,7 +14,19 @@ import java.util.concurrent.TimeUnit;
 
 public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
 
-   public  OrcJSONSchemaDictionary(String hiveURL, String databaseName, boolean ignoreNulls, boolean allowInvalidCoercions, HashMap<String, HashMap<String, Class>> schemaOverrides){
+    public  OrcJSONSchemaDictionary(String hiveURL, String databaseName, boolean ignoreNulls, boolean allowInvalidCoercions, HashMap<String, HashMap<String, Class>> schemaOverrides) {
+        this(hiveURL, databaseName, ignoreNulls, allowInvalidCoercions, schemaOverrides, null);
+    }
+   public  OrcJSONSchemaDictionary(String hiveURL, String databaseName, boolean ignoreNulls, boolean allowInvalidCoercions, HashMap<String, HashMap<String, Class>> schemaOverrides, List<EventTypeColumnModifier> eventTypeColumnModifierList){
+
+        Map<String, List<EventTypeColumnModifier>> columnModifierMap = new HashMap<>();
+        if (eventTypeColumnModifierList!=null){
+            for(EventTypeColumnModifier eventTypeColumnModifier: eventTypeColumnModifierList){
+                if(!columnModifierMap.containsKey(eventTypeColumnModifier.getName().getEventType()))
+                    columnModifierMap.put(eventTypeColumnModifier.getName().getEventType(), new ArrayList<>());
+                columnModifierMap.get(eventTypeColumnModifier.getName().getEventType()).add(eventTypeColumnModifier);
+            }
+        }
 
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.local", "false");
@@ -61,7 +74,7 @@ public class OrcJSONSchemaDictionary extends JSONSchemaDictionary {
                         }
 
                         synchronized (eventTypes) {
-                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns, ignoreNulls, allowInvalidCoercions));
+                            eventTypes.put(tableName, new EventTypeJSONSchema(prefixes, columns, ignoreNulls, allowInvalidCoercions, columnModifierMap.get(tableName)));
                         }
                         System.out.println("Fetched Orc Table: "+tableName);
                     }

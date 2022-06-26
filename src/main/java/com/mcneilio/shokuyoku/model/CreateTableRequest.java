@@ -27,7 +27,7 @@ public class CreateTableRequest {
 
         StorageDescriptor sd = new StorageDescriptor();
         sd.setInputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
-        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.orc.OrcInputFormat");
+        sd.setOutputFormat("org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat");
 
         SerDeInfo serDeInfo = new SerDeInfo();
         serDeInfo.setSerializationLib("org.apache.hadoop.hive.ql.io.orc.OrcSerde");

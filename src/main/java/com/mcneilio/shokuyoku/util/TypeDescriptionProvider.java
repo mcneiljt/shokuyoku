@@ -5,5 +5,5 @@ import org.apache.orc.TypeDescription;
 
 
 public interface TypeDescriptionProvider {
-    public  TypeDescription getInstance(String databaseName, String eventName) ;
+    public  TypeDescription getInstance(String databaseName, String eventName) throws Exception;
 }

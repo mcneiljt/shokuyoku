@@ -27,7 +27,7 @@ public class JSONColumnFormatFilterBenchmark {
         columns.put("context_library_name", String.class);
         columns.put("page_path", String.class);
 
-        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false);
+        JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = new JSONSchemaDictionary.EventTypeJSONSchema(prefixes, columns, false, false, null);
         jsonSchemaDictionary.addEventType("focus_window", eventTypeJSONSchema);
 
         String eventText = getTestJSONStr();

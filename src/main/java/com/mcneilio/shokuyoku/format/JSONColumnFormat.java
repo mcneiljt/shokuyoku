@@ -18,6 +18,8 @@ public class JSONColumnFormat {
         boolean filterPrefix(String prefix);
 
         boolean filterColumn(String str, Object o);
+
+        Object modifyColumn(String str, Object o);
     }
 
     public JSONColumnFormat(JSONObject original) {
@@ -57,15 +59,33 @@ public class JSONColumnFormat {
                 public boolean filterColumn(String str, Object o) {
                     return false;
                 }
+
+                @Override
+                public Object modifyColumn(String str, Object o) {
+                    return o;
+                }
             }, shouldFlatten, hoistFields
         );
         return flattened;
     }
 
     private void flatten(JSONObject dest, JSONObject obj, String prefix, JSONColumnFormatFilter filter, boolean shouldFlatten, Set<String> hoistFields) {
+        hoistFields.forEach(key -> {
+            if(obj.has(key) && obj.get(key) instanceof JSONObject) {
+                if (shouldFlatten) {
+                    flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+                } else if (obj.has(key)) {
+                    JSONObject subDest = new JSONObject();
+                    dest.put(key, subDest);
+                    flatten(subDest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+                }
+            }
+        });
+
         obj.keys().forEachRemaining(key -> {
             String normalizedKey = StringNormalizer.normalizeKey(key);
             String normalizedFullKey = prefix + normalizedKey;
+
 
             if (obj.get(key) instanceof JSONObject) {
                 if(hoistFields.contains(key) && obj.get(key) instanceof JSONObject){
@@ -85,23 +105,15 @@ public class JSONColumnFormat {
                 }
             } else if (obj.get(key) instanceof JSONArray) {
                 if (!filter.filterColumn(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
-                    dest.put(shouldFlatten ? normalizedFullKey : key, obj.get(key));
+                    String keyToUse = shouldFlatten ? normalizedFullKey : key;
+
+                    dest.put(keyToUse, filter.modifyColumn(normalizedFullKey, obj.get(key)));
                 }
             } else {
                 if (!filter.filterColumn(normalizedFullKey, obj.get(key))) { // need to add the type to this filter too
-                    dest.put(shouldFlatten ? normalizedFullKey : key, obj.get(key));
-                }
-            }
-        });
+                    String keyToUse = shouldFlatten ? normalizedFullKey : key;
 
-        hoistFields.forEach(key -> {
-            if(obj.has(key) && obj.get(key) instanceof JSONObject) {
-                if (shouldFlatten) {
-                    flatten(dest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
-                } else if (obj.has(key)) {
-                    JSONObject subDest = new JSONObject();
-                    dest.put(key, subDest);
-                    flatten(subDest, (JSONObject) obj.get(key), "", filter, shouldFlatten, Collections.EMPTY_SET);
+                    dest.put(keyToUse, filter.modifyColumn(normalizedFullKey,obj.get(key)));
                 }
             }
         });

@@ -3,6 +3,7 @@ package com.mcneilio.shokuyoku.util;
 import com.mcneilio.shokuyoku.model.EventError;
 import com.mcneilio.shokuyoku.model.EventType;
 import com.mcneilio.shokuyoku.model.EventTypeColumn;
+import com.mcneilio.shokuyoku.model.EventTypeColumnModifier;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
 
@@ -24,6 +25,8 @@ public class DBUtil {
             addAnnotatedClass(EventError.class).
             addAnnotatedClass(EventType.class).
             addAnnotatedClass(EventTypeColumn.class).
+            addAnnotatedClass(EventTypeColumnModifier.class).
+
             buildSessionFactory();
     }
 }

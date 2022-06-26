@@ -2,10 +2,9 @@ package com.mcneilio.shokuyoku;
 
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
-import com.mcneilio.shokuyoku.util.JSONSchemaDictionary;
-import com.mcneilio.shokuyoku.util.OrcJSONSchemaDictionary;
-import com.mcneilio.shokuyoku.util.ShokuyokuTypes;
-import com.mcneilio.shokuyoku.util.Statsd;
+import com.mcneilio.shokuyoku.model.EventType;
+import com.mcneilio.shokuyoku.model.EventTypeColumnModifier;
+import com.mcneilio.shokuyoku.util.*;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -14,6 +13,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.Query;
 import org.json.JSONObject;
 
 import java.time.Duration;
@@ -99,6 +101,14 @@ public class Filter {
             }
         }
 
+        SessionFactory sessionFactory = DBUtil.getSessionFactory();
+        Session readSession = sessionFactory.openSession();
+
+        Query q = readSession.createQuery("select et from EventTypeColumnModifier et", EventTypeColumnModifier.class);
+        List<EventTypeColumnModifier> eventTypeColumnModifierList = q.list();
+
+        readSession.close();
+
         HashMap<String, HashMap<String, Class>> schemaOverrides = new HashMap<>();
         // This is gross and I feel bad about it.
         if (System.getenv("SCHEMA_OVERRIDES") != null){
@@ -116,7 +126,7 @@ public class Filter {
             }
         }
 
-        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"), ignoreNulls, allowInvalidCoercions, schemaOverrides);
+        OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"), ignoreNulls, allowInvalidCoercions, schemaOverrides, eventTypeColumnModifierList);
 
         long pollMS = System.getenv("KAFKA_POLL_DURATION_MS")!=null ? Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS")) : 1000;
 
