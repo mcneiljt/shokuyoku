@@ -1,0 +1,1 @@
+export {useConfetti} from './useConfetti';
