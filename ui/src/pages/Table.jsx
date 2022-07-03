@@ -42,7 +42,7 @@ export default function EventTypeEditor({newEventType}) {
     BPromise.all([
       fetch('/types').then((response) => response.json()),
       fetch(`/deltas/event_type/${eventTypeName}`).then((response) => response.json()),
-      fetch(`/schemas/${databaseName}/${eventTypeName}`).then((response) => response.json()),
+      fetch(`/schemas/${databaseName}/table/${eventTypeName}`).then((response) => response.json()),
     ]).then(([typesTmp, deltasTmp, eventTypeTmp]) => {
       setTypes(typesTmp);
       setEventType(eventTypeTmp);
@@ -87,7 +87,7 @@ export default function EventTypeEditor({newEventType}) {
   }, [columns]);
 
   const deleteTable = useCallback(async () => {
-    await fetch(`/schemas/${databaseName}/${encodeURIComponent(tableName)}`, {
+    await fetch(`/schemas/${databaseName}/table/${encodeURIComponent(tableName)}`, {
       method: 'delete', // or 'PUT'
       headers: {
         'Content-Type': 'application/json',

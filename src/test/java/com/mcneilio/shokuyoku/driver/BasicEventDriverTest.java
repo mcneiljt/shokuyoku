@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class BasicEventDriverTest {
     @Test
-    public void firehoseCanSerializeAndDeserializeLittleEndian() throws IOException {
+    public void firehoseCanSerializeAndDeserializeLittleEndian() throws Exception {
         String basePath = Files.createTempDirectory("tmpDirPrefix").toFile().getAbsolutePath();
         LocalStorageDriver localStorageDriver = new LocalStorageDriver(basePath);
 

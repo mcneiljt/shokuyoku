@@ -22,7 +22,7 @@ public class MemoryDescriptionProvider implements TypeDescriptionProvider {
     }
 
     @Override
-    public TypeDescription getInstance(String databaseName, String eventName) {
+    public TypeDescription getInstance(String databaseName, String eventName) throws Exception {
         return typeDescriptions.get(eventName);
     }
 }

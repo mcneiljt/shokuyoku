@@ -27,7 +27,7 @@ public class JSONColumnFormatTest {
         }
         long finalResult = result/10;
         System.out.println("JSON Flattened 10 times taking an average of: " + finalResult + " ns");
-        assert finalResult < 1000000;
+        assert finalResult < 2000000;
     }
 
     @Test
