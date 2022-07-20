@@ -1,5 +1,6 @@
 package com.mcneilio.shokuyoku;
 
+import com.mcneilio.shokuyoku.filter.FilterEventByColumnValue;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 import com.mcneilio.shokuyoku.model.EventType;
@@ -176,7 +177,9 @@ public class Filter {
                 }
 
                 statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
-                producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
+                if (new FilterEventByColumnValue(cleanedObject).shouldForward()) {
+                    producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
+                }
             }
 
             consumer.commitSync();
