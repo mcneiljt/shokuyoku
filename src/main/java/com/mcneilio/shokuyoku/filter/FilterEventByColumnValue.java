@@ -34,6 +34,10 @@ public class FilterEventByColumnValue {
     }
 
     boolean shouldForwardContains(String column, String value) {
+        if (!event.has(column))
+            return false;
+        if (event.get(column) == null)
+            return false;
         if (event.get(column).toString().contains(value))
             return true;
         else
@@ -41,6 +45,10 @@ public class FilterEventByColumnValue {
     }
 
     boolean shouldForwardExcludes(String column, String value) {
+        if (!event.has(column))
+            return true;
+        if (event.get(column) == null)
+            return true;
         if (event.get(column).toString().contains(value))
             return false;
         else
