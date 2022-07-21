@@ -176,10 +176,19 @@ public class Filter {
                     }
                 }
 
-                statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
-                if (new FilterEventByColumnValue(cleanedObject).shouldForward()) {
+
+                if (!System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
+                    statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                 }
+                else if (new FilterEventByColumnValue(cleanedObject).shouldForward()) {
+                    producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
+                    statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
+                }
+                else {
+                    statsd.increment("filter.blocked_event", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
+                }
+
             }
 
             consumer.commitSync();
