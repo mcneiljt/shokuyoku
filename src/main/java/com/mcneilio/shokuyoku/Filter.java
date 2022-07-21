@@ -129,6 +129,11 @@ public class Filter {
 
         OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"), ignoreNulls, allowInvalidCoercions, schemaOverrides, eventTypeColumnModifierList);
 
+        FilterEventByColumnValue filterEventByColumnValue = null;
+        if (System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
+            filterEventByColumnValue = new FilterEventByColumnValue();
+        }
+
         long pollMS = System.getenv("KAFKA_POLL_DURATION_MS")!=null ? Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS")) : 1000;
 
         while (true) {
@@ -177,11 +182,11 @@ public class Filter {
                 }
 
 
-                if (!System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
+                if (filterEventByColumnValue == null) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
                     statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                 }
-                else if (new FilterEventByColumnValue(cleanedObject).shouldForward()) {
+                else if (filterEventByColumnValue.shouldForward(cleanedObject)) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
                     statsd.increment("filter.forwarded", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                 }

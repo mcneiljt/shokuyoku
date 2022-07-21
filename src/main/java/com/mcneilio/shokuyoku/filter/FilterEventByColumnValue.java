@@ -1,12 +1,12 @@
 package com.mcneilio.shokuyoku.filter;
 
 import org.json.JSONObject;
+import org.mortbay.util.ajax.JSON;
 
 import java.util.ArrayList;
 
 public class FilterEventByColumnValue {
-    public FilterEventByColumnValue(JSONObject event) {
-        this.event = event;
+    public FilterEventByColumnValue() {
         if (System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
             for (String filterString: System.getenv("EVENT_COLUMN_VALUE_FILTER").split("|")) {
                 filters.add(new ColumnValueFilter(filterString.split(",")));
@@ -14,7 +14,7 @@ public class FilterEventByColumnValue {
         }
     }
 
-    public boolean shouldForward() {
+    public boolean shouldForward(JSONObject event) {
         if (filters.size() == 0) {
             return true;
         }
@@ -22,9 +22,9 @@ public class FilterEventByColumnValue {
             for (ColumnValueFilter filter : filters) {
                 switch (filter.method.toLowerCase()) {
                     case "contains":
-                        return shouldForwardContains(filter.column, filter.value);
+                        return shouldForwardContains(filter.column, filter.value, event);
                     case "excludes":
-                        return shouldForwardExcludes(filter.column, filter.value);
+                        return shouldForwardExcludes(filter.column, filter.value, event);
                     default:
                         System.out.println("UnknownFilterMethod: " + filter.method);
                 }
@@ -33,7 +33,7 @@ public class FilterEventByColumnValue {
         return true;
     }
 
-    boolean shouldForwardContains(String column, String value) {
+    boolean shouldForwardContains(String column, String value, JSONObject event) {
         if (!event.has(column))
             return false;
         if (event.get(column) == null)
@@ -44,7 +44,7 @@ public class FilterEventByColumnValue {
             return false;
     }
 
-    boolean shouldForwardExcludes(String column, String value) {
+    boolean shouldForwardExcludes(String column, String value, JSONObject event) {
         if (!event.has(column))
             return true;
         if (event.get(column) == null)
@@ -55,7 +55,6 @@ public class FilterEventByColumnValue {
             return true;
     }
 
-    private JSONObject event;
     private ArrayList<ColumnValueFilter> filters = new ArrayList<>();
 
     private class ColumnValueFilter {
