@@ -9,7 +9,8 @@ public class FilterEventByColumnValue {
     public FilterEventByColumnValue() {
         if (System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
             for (String filterString: System.getenv("EVENT_COLUMN_VALUE_FILTER").split("|")) {
-                filters.add(new ColumnValueFilter(filterString.split(",")));
+                String[] filterComponents = filterString.split(",");
+                filters.add(new ColumnValueFilter(filterComponents[0], filterComponents[1], filterComponents[2]));
             }
         }
     }
@@ -58,10 +59,10 @@ public class FilterEventByColumnValue {
     private ArrayList<ColumnValueFilter> filters = new ArrayList<>();
 
     private class ColumnValueFilter {
-        ColumnValueFilter(String[] filterComponents) {
-            this.column = filterComponents[0];
-            this.method = filterComponents[1];
-            this.value = filterComponents[2];
+        ColumnValueFilter(String column, String method, String value) {
+            this.column = column;
+            this.method = method;
+            this.value = value;
         }
         String column, method, value;
     }
