@@ -2,6 +2,7 @@ package com.mcneilio.shokuyoku;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
+import java.util.Locale;
 
 /**
  * Entrypoint to the shokuyoku daemon
@@ -25,7 +26,12 @@ public class App {
         }
 
         if (args[0].equals("worker") || args[0].equals("standalone")) {
-            Worker worker = new Worker();
+            IWorker worker;
+            if(System.getenv("WORKER_VERSION").equalsIgnoreCase("json")) {
+                worker = new WorkerJSON();
+            } else {
+                worker = new Worker();
+            }
 
             // TODO replace this with something better
             new Thread(new Runnable() {
