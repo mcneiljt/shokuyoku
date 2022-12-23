@@ -193,6 +193,16 @@ public class Filter {
         producerProps.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
         producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+        if (System.getenv("LINGER_MS") != null) {
+            producerProps.setProperty(ProducerConfig.LINGER_MS_CONFIG, System.getenv("LINGER_MS"));
+        }
+        if (System.getenv("BATCH_SIZE") != null) {
+            producerProps.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, System.getenv("BATCH_SIZE"));
+        }
+        if (System.getenv("ACKS") != null) {
+            producerProps.setProperty(ProducerConfig.ACKS_CONFIG, System.getenv("ACKS"));
+        }
         return producerProps;
     }
 
