@@ -214,6 +214,10 @@ public class Filter {
         consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         consumerProps.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         consumerProps.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
+        if (System.getenv("CLIENT_RACK") != null) {
+            consumerProps.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("CLIENT_RACK"));
+        }
         return consumerProps;
     }
 
