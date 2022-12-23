@@ -71,27 +71,16 @@ public class Filter {
         boolean allowInvalidCoercions = "true".equals(System.getenv("ALLOW_INVALID_COERCIONS"));
 
         statsd = Statsd.getInstance();
-        Properties consumerProps = new Properties();
-        consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
-        consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
-        consumerProps.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        consumerProps.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        consumerProps.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-        Properties producerProps = new Properties();
-        producerProps.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
-        producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        Properties consumerProps = createConsumerProps();
+        Properties producerProps = createProducerProps();
 
         KafkaConsumer<String,byte[]> consumer = new KafkaConsumer<>(consumerProps);
-
         KafkaProducer<String,byte[]> producer = new KafkaProducer<>(producerProps);
 
         consumer.subscribe(Arrays.asList(System.getenv("KAFKA_INPUT_TOPIC")));
 
         boolean littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
-
 
         Set<String> dropEvents = null;
         if (System.getenv("DROP_EVENT_TOPICS") !=null) {
@@ -197,6 +186,25 @@ public class Filter {
 
             consumer.commitSync();
         }
+    }
+
+    private Properties createProducerProps() {
+        Properties producerProps = new Properties();
+        producerProps.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
+        producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
+        return producerProps;
+    }
+
+    private Properties createConsumerProps() {
+        Properties consumerProps = new Properties();
+        consumerProps.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
+        consumerProps.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
+        consumerProps.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        consumerProps.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        consumerProps.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        return consumerProps;
     }
 
     static StatsDClient statsd;
