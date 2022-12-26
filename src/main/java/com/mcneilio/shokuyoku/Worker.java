@@ -56,6 +56,9 @@ public class Worker {
         if (System.getenv("CLIENT_RACK") != null) {
             props.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("CLIENT_RACK"));
         }
+        if (System.getenv("FETCH_MIN_BYTES") != null) {
+            props.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("FETCH_MIN_BYTES"));
+        }
 
         return props;
     }

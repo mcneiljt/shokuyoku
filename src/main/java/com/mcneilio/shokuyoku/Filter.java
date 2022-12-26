@@ -218,6 +218,9 @@ public class Filter {
         if (System.getenv("CLIENT_RACK") != null) {
             consumerProps.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("CLIENT_RACK"));
         }
+        if (System.getenv("FETCH_MIN_BYTES") != null) {
+            consumerProps.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("FETCH_MIN_BYTES"));
+        }
         return consumerProps;
     }
 
