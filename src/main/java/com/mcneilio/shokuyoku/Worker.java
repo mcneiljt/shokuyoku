@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Properties;
 
 public class Worker {
@@ -53,7 +54,7 @@ public class Worker {
     boolean running = true;
     long currentOffset = 0;
 
-    protected void start() {
+    protected void start() throws Exception {
         StorageDriver storageDriver = null;
         if(System.getenv("S3_BUCKET")!=null) {
             storageDriver=new S3StorageDriver(System.getenv("S3_BUCKET"),System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") );
@@ -67,6 +68,13 @@ public class Worker {
             }
         });
 
+        HashSet<String> hoistFields = new HashSet();
+        if(System.getenv("HOIST_FIELDS")!=null){
+            for(String field : System.getenv("HOIST_FIELDS").split(",")) {
+                hoistFields.add(field.trim());
+            }
+        }
+
         while (running) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
@@ -76,22 +84,39 @@ public class Worker {
                 }
                 Firehose f = new Firehose(record.value(), littleEndian);
                 String eventName = f.getTopic();
-                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getFlattened();
+                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, hoistFields);
                 if (!msg.has("timestamp") || !msg.has("event")) {
                     continue;
                 }
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
-                    System.out.println("Creating driver for event: " + eventName + "with date: " + date);
+                    System.out.println("Creating driver for event: " + eventName + " with date: " + date);
 
-                    TypeDescription typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    TypeDescription typeDescription = null;
+                    try {
+                        typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
+                    } catch (Exception e) {
+                        // TODO cleanup orcs
+                        throw e;
+                    }
                     if(typeDescription!=null)
                         drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
                     else {
+                        drivers.put(eventName+date, null);
                         continue;
                     }
                 }
-                drivers.get(eventName+date).addMessage(msg);
+
+                EventDriver eventDriver = drivers.get(eventName+date);
+                if (eventDriver!=null) {
+                    try {
+                        eventDriver.addMessage(msg);
+                    }catch(Exception ex){
+                        System.err.println("Error handling event: "+f.getTopic());
+                        System.err.println(f.getMessage());
+                        throw ex;
+                    }
+                }
                 currentOffset = record.offset();
             }
             if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
@@ -109,8 +134,10 @@ public class Worker {
 
     private void flushDrivers() {
         drivers.forEach((s, eventDriver) -> {
-            System.out.println("Flushing Event Driver for: "+s);
-            eventDriver.flush(true);
+            if (eventDriver!=null) {
+                System.out.println("Flushing Event Driver for: " + s);
+                eventDriver.flush(true);
+            }
         });
         drivers.clear();
         if (currentOffset != 0) {

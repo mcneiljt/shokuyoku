@@ -1,8 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, {useEffect, useState, useCallback} from 'react';
 import BPromise from 'bluebird';
-import {
-  useParams, useNavigate,
-} from 'react-router-dom';
+import {useParams, useNavigate} from 'react-router-dom';
 import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -25,8 +23,8 @@ import PropTypes from 'prop-types';
 
 const ITEM_HEIGHT = 20;
 
-export default function EventTypeEditor({ newEventType }) {
-  const { databaseName, eventTypeName } = useParams();
+export default function EventTypeEditor({newEventType}) {
+  const {databaseName, eventTypeName} = useParams();
   const navigate = useNavigate();
 
   const [types, setTypes] = useState([]);
@@ -44,7 +42,7 @@ export default function EventTypeEditor({ newEventType }) {
     BPromise.all([
       fetch('/types').then((response) => response.json()),
       fetch(`/deltas/event_type/${eventTypeName}`).then((response) => response.json()),
-      fetch(`/schemas/${databaseName}/${eventTypeName}`).then((response) => response.json()),
+      fetch(`/schemas/${databaseName}/table/${eventTypeName}`).then((response) => response.json()),
     ]).then(([typesTmp, deltasTmp, eventTypeTmp]) => {
       setTypes(typesTmp);
       setEventType(eventTypeTmp);
@@ -84,12 +82,12 @@ export default function EventTypeEditor({ newEventType }) {
   }, [setColumns]);
 
   const addColumn = useCallback(() => {
-    columns.push({ name: '', type: 'string', editing: true });
+    columns.push({name: '', type: 'string', editing: true});
     setColumns([].concat(columns));
   }, [columns]);
 
   const deleteTable = useCallback(async () => {
-    await fetch(`/schemas/${databaseName}/${encodeURIComponent(tableName)}`, {
+    await fetch(`/schemas/${databaseName}/table/${encodeURIComponent(tableName)}`, {
       method: 'delete', // or 'PUT'
       headers: {
         'Content-Type': 'application/json',
@@ -102,15 +100,19 @@ export default function EventTypeEditor({ newEventType }) {
   const saveTable = useCallback(() => {
     const obj = {
       name: tableName,
-      partitionedBy: [{
-        name: partitionKey,
-        type: partitionType,
-      }],
-      columns: columns.map((c) => ({ name: c.name, type: c.type })),
+      partitionedBy: [
+        {
+          name: partitionKey,
+          type: partitionType,
+        },
+      ],
+      columns: columns.map((c) => ({name: c.name, type: c.type})),
       location: location.replace('{table_name}', tableName),
     };
 
+    // TODO: create table
     fetch(`/schemas/${databaseName}/${encodeURIComponent(tableName)}`, {
+      // event type existing means it was fetched so update, otherwise its null so create
       method: eventType ? 'PUT' : 'POST', // or 'PUT'
       headers: {
         'Content-Type': 'application/json',
@@ -122,23 +124,38 @@ export default function EventTypeEditor({ newEventType }) {
   const [anchorEl, setAnchorEl] = useState(null);
   return (
     <div>
-      {newEventType ? null : <Button style={{ float: 'right' }} variant="text" onClick={() => { setMaybeDeleteTable(true); }}>Delete</Button>}
+      {newEventType ? null : (
+        <Button
+          style={{float: 'right'}}
+          variant="text"
+          onClick={() => {
+            setMaybeDeleteTable(true);
+          }}
+        >
+          Delete
+        </Button>
+      )}
       {maybeDeleteTable ? (
         <Dialog
-          open={() => { console.log('dop'); }}
-          onClose={() => { setMaybeDeleteTable(null); }}
+          open={() => {
+            console.log('dop');
+          }}
+          onClose={() => {
+            setMaybeDeleteTable(null);
+          }}
           aria-labelledby="alert-dialog-title"
           aria-describedby="alert-dialog-description"
         >
-          <DialogTitle id="alert-dialog-title">
-            Delete
-            {' '}
-            {tableName}
-            ?
-          </DialogTitle>
+          <DialogTitle id="alert-dialog-title">Delete {tableName}?</DialogTitle>
           <DialogContent />
           <DialogActions>
-            <Button onClick={() => { setMaybeDeleteTable(null); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setMaybeDeleteTable(null);
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               onClick={() => {
                 setMaybeDeleteTable(null);
@@ -153,20 +170,27 @@ export default function EventTypeEditor({ newEventType }) {
       ) : null}
       {deleteColumn !== null ? (
         <Dialog
-          open={() => { console.log('dop'); }}
-          onClose={() => { setDeleteColumn(null); }}
+          open={() => {
+            console.log('dop');
+          }}
+          onClose={() => {
+            setDeleteColumn(null);
+          }}
           aria-labelledby="alert-dialog-title"
           aria-describedby="alert-dialog-description"
         >
           <DialogTitle id="alert-dialog-title">
-            Delete column:
-            {' '}
-            {columns[deleteColumn].name}
-            ?
+            Delete column: {columns[deleteColumn].name}?
           </DialogTitle>
           <DialogContent />
           <DialogActions>
-            <Button onClick={() => { setDeleteColumn(null); }}>Cancel</Button>
+            <Button
+              onClick={() => {
+                setDeleteColumn(null);
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               onClick={() => {
                 columns.splice(deleteColumn, 1);
@@ -194,7 +218,9 @@ export default function EventTypeEditor({ newEventType }) {
               variant="standard"
               value={tableName}
             />
-          ) : tableName}
+          ) : (
+            tableName
+          )}
         </h3>
 
         <h2>Partitioned By</h2>
@@ -206,7 +232,9 @@ export default function EventTypeEditor({ newEventType }) {
             setPartitionType(e.target.value);
           }}
         >
-          {types.map((type) => <MenuItem value={type}>{type}</MenuItem>)}
+          {types.map((type) => (
+            <MenuItem value={type}>{type}</MenuItem>
+          ))}
         </Select>
 
         <TextField
@@ -224,7 +252,7 @@ export default function EventTypeEditor({ newEventType }) {
 
         <h3>Columns</h3>
         <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650 }} aria-label="simple table">
+          <Table sx={{minWidth: 650}} aria-label="simple table">
             <TableHead>
               <TableRow>
                 <TableCell align="left">Name</TableCell>
@@ -251,7 +279,7 @@ export default function EventTypeEditor({ newEventType }) {
                 };
                 return (
                   <TableRow>
-                    <TableCell style={{ color: col.error ? 'red' : null }}>
+                    <TableCell style={{color: col.error ? 'red' : null}}>
                       {col.editing ? (
                         <TextField
                           onChange={(evt) => {
@@ -262,12 +290,9 @@ export default function EventTypeEditor({ newEventType }) {
                           label="Column Name"
                           variant="standard"
                         />
-                      )
-                        : (
-                          <div>
-                            {col.name}
-                          </div>
-                        )}
+                      ) : (
+                        <div>{col.name}</div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {col.editing ? (
@@ -280,11 +305,14 @@ export default function EventTypeEditor({ newEventType }) {
                             //  setColumns(columns);
                             setColumns([].concat(columns));
                           }}
-
                         >
-                          {types.map((type) => <MenuItem value={type}>{type}</MenuItem>)}
+                          {types.map((type) => (
+                            <MenuItem value={type}>{type}</MenuItem>
+                          ))}
                         </Select>
-                      ) : <div>{col.type}</div>}
+                      ) : (
+                        <div>{col.type}</div>
+                      )}
                     </TableCell>
                     <TableCell>{col.lastError ? `Las2t  Error: ${col.lastError}` : ''}</TableCell>
                     <TableCell>
@@ -329,8 +357,12 @@ export default function EventTypeEditor({ newEventType }) {
           </Table>
         </TableContainer>
       </div>
-      <Button variant="text" onClick={addColumn}>Add Column</Button>
-      <Button variant="text" onClick={saveTable}>save</Button>
+      <Button variant="text" onClick={addColumn}>
+        Add Column
+      </Button>
+      <Button variant="text" onClick={saveTable}>
+        save
+      </Button>
     </div>
   );
 }
