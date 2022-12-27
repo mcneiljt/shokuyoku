@@ -179,7 +179,7 @@ public class Service {
                         try {
                             hive.addTable(tbl);
                         } catch (Exception ex) {
-                            System.out.println("ASD");
+                            System.out.println("Exception Creating table");
                             ex.printStackTrace();
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
@@ -214,7 +214,8 @@ public class Service {
                         try {
                             hive.updateTable(params.getParameters().get("database"), params.getParameters().get("tableName"), tbl);
                         } catch (Exception ex) {
-                            System.out.println("ASD");
+                            System.out.println("Error updating table");
+                            ex.printStackTrace();
                         }
                         exchange.getResponseSender().send("might have accepted it" + "\n");
                         exchange.getResponseSender().close();
