@@ -31,13 +31,12 @@ public class Worker {
 
         verifyEnvironment();
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
-        Properties props = createConsumerProps();
 
         String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC") != null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
 
         this.descriptionProvider = new HiveDescriptionProvider();
         this.databaseName = System.getenv("HIVE_DATABASE");
-        this.consumer = new KafkaConsumer<>(props);
+        this.consumer = new KafkaConsumer<>(createConsumerProps());
         this.consumer.subscribe(Arrays.asList(kafkaTopic));
         this.littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
 
