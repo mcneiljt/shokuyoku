@@ -72,11 +72,8 @@ public class Filter {
 
         statsd = Statsd.getInstance();
 
-        Properties consumerProps = createConsumerProps();
-        Properties producerProps = createProducerProps();
-
-        KafkaConsumer<String,byte[]> consumer = new KafkaConsumer<>(consumerProps);
-        KafkaProducer<String,byte[]> producer = new KafkaProducer<>(producerProps);
+        KafkaConsumer<String,byte[]> consumer = new KafkaConsumer<>(createConsumerProps());
+        KafkaProducer<String,byte[]> producer = new KafkaProducer<>(createProducerProps());
 
         consumer.subscribe(Arrays.asList(System.getenv("KAFKA_INPUT_TOPIC")));
 
