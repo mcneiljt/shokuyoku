@@ -191,14 +191,14 @@ public class Filter {
         producerProps.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
         producerProps.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArraySerializer");
 
-        if (System.getenv("LINGER_MS") != null) {
-            producerProps.setProperty(ProducerConfig.LINGER_MS_CONFIG, System.getenv("LINGER_MS"));
+        if (System.getenv("KAFKA_LINGER_MS") != null) {
+            producerProps.setProperty(ProducerConfig.LINGER_MS_CONFIG, System.getenv("KAFKA_LINGER_MS"));
         }
-        if (System.getenv("BATCH_SIZE") != null) {
-            producerProps.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, System.getenv("BATCH_SIZE"));
+        if (System.getenv("KAFKA_BATCH_SIZE") != null) {
+            producerProps.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, System.getenv("KAFKA_BATCH_SIZE"));
         }
-        if (System.getenv("ACKS") != null) {
-            producerProps.setProperty(ProducerConfig.ACKS_CONFIG, System.getenv("ACKS"));
+        if (System.getenv("KAFKA_ACKS") != null) {
+            producerProps.setProperty(ProducerConfig.ACKS_CONFIG, System.getenv("KAFKA_ACKS"));
         }
         return producerProps;
     }
@@ -212,11 +212,11 @@ public class Filter {
         consumerProps.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         consumerProps.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-        if (System.getenv("CLIENT_RACK") != null) {
-            consumerProps.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("CLIENT_RACK"));
+        if (System.getenv("KAFKA_CLIENT_RACK") != null) {
+            consumerProps.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("KAFKA_CLIENT_RACK"));
         }
-        if (System.getenv("FETCH_MIN_BYTES") != null) {
-            consumerProps.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("FETCH_MIN_BYTES"));
+        if (System.getenv("KAFKA_FETCH_MIN_BYTES") != null) {
+            consumerProps.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("KAFKA_FETCH_MIN_BYTES"));
         }
         return consumerProps;
     }

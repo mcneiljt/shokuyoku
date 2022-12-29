@@ -52,11 +52,11 @@ public class Worker {
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
         props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-        if (System.getenv("CLIENT_RACK") != null) {
-            props.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("CLIENT_RACK"));
+        if (System.getenv("KAFKA_CLIENT_RACK") != null) {
+            props.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("KAFKA_CLIENT_RACK"));
         }
-        if (System.getenv("FETCH_MIN_BYTES") != null) {
-            props.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("FETCH_MIN_BYTES"));
+        if (System.getenv("KAFKA_FETCH_MIN_BYTES") != null) {
+            props.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("KAFKA_FETCH_MIN_BYTES"));
         }
 
         return props;
