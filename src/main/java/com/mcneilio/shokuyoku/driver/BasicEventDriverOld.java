@@ -28,7 +28,7 @@ import java.util.UUID;
  * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
  * is reached, the ORC file is sent to the storageDriver.
  */
-public class BasicEventDriverOld implements EventDriver {
+public class BasicEventDriverOld implements EventDriver, com.mcneilio.orcmaker.EventDriver {
 
     public BasicEventDriverOld(String eventName, String date, TypeDescription typeDescription, StorageDriver storageDriver) {
         this.eventName = eventName;

@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
  * is reached, the ORC file is sent to the storageDriver.
  */
-public class BasicEventDriver implements EventDriver {
+public class BasicEventDriver implements EventDriver, com.mcneilio.orcmaker.EventDriver {
 
     private interface JSONToOrc {
         void addObject(ColumnVector columnVector, int idx, Object obj);
