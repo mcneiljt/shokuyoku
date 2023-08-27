@@ -170,6 +170,16 @@
       <artifactId>guava</artifactId>
       <version>31.1-jre</version>
     </dependency>
+    <dependency>
+      <groupId>com.mcneilio</groupId>
+      <artifactId>orcmaker</artifactId>
+      <version>1.0.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-client-runtime</artifactId>
+      <version>3.3.6</version>
+    </dependency>
   </dependencies>
 
   <build>
