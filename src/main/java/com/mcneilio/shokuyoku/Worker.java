@@ -1,15 +1,12 @@
 package com.mcneilio.shokuyoku;
 
-import com.mcneilio.shokuyoku.driver.EventDriver;
-import com.mcneilio.shokuyoku.driver.BasicEventDriver;
-import com.mcneilio.shokuyoku.driver.S3StorageDriver;
-import com.mcneilio.shokuyoku.driver.StorageDriver;
+import com.mcneilio.orcmaker.EventDriver;
+import com.mcneilio.orcmaker.BasicEventDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
 
 import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
-import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -67,10 +64,16 @@ public class Worker {
     long currentOffset = 0;
 
     protected void start() throws Exception {
-        StorageDriver storageDriver = null;
-        if(System.getenv("S3_BUCKET")!=null) {
-            storageDriver=new S3StorageDriver(System.getenv("S3_BUCKET"),System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE") );
-        }
+        baseProps.setProperty("orcBatchSize", System.getenv("ORC_BATCH_SIZE"));
+        baseProps.setProperty("storage.driver", "s3");
+        baseProps.setProperty("storage.s3.bucket", System.getenv("S3_BUCKET"));
+        baseProps.setProperty("storage.s3.prefix", System.getenv("S3_PREFIX") + "/" + System.getenv("HIVE_DATABASE"));
+        baseProps.setProperty("storage.s3.region", System.getenv("AWS_DEFAULT_REGION"));
+        baseProps.setProperty("statsd.prefix", System.getenv("STATSD_PREFIX"));
+        baseProps.setProperty("statsd.host", System.getenv("STATSD_HOST") != null ? System.getenv("STATSD_HOST") : "localhost");
+        baseProps.setProperty("statsd.port", System.getenv("STATSD_PORT") != null ? System.getenv("STATSD_PORT") : "8125");
+        baseProps.setProperty("statsd.flush.ms", System.getenv("STATSD_FLUSH_MS") != null ? System.getenv("STATSD_FLUSH_MS") : "1000");
+        baseProps.setProperty("statsd.env", System.getenv("STATSD_ENV"));
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -103,6 +106,9 @@ public class Worker {
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + " with date: " + date);
+                    Properties props = (Properties) baseProps.clone();
+                    props.setProperty("event.name", eventName);
+                    props.setProperty("event.date", date);
 
                     TypeDescription typeDescription = null;
                     try {
@@ -112,7 +118,7 @@ public class Worker {
                         throw e;
                     }
                     if(typeDescription!=null)
-                        drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
+                        drivers.put(eventName+date, new BasicEventDriver(props, typeDescription));
                     else {
                         drivers.put(eventName+date, null);
                         continue;
@@ -214,4 +220,5 @@ public class Worker {
     long iterationTime = 0;
     StatsDClient statsd;
     private final HiveDescriptionProvider descriptionProvider;
+    private Properties baseProps;
 }
