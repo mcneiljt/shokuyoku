@@ -51,6 +51,11 @@ public class BasicEventDriver implements EventDriver, com.mcneilio.orcmaker.Even
 
     private JSONToOrc[] orcers;
 
+    public void addMessage(String message) {
+        JSONObject msg = new JSONObject(message);
+        addMessage(msg);
+    }
+
     @Override
     public void addMessage(JSONObject msg2) {
         long t = Instant.now().toEpochMilli();

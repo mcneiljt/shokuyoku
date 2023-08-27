@@ -43,6 +43,11 @@ public class BasicEventDriverOld implements EventDriver, com.mcneilio.orcmaker.E
         this.statsd = Statsd.getInstance();
     }
 
+    public void addMessage(String message) {
+        JSONObject msg = new JSONObject(message);
+        addMessage(msg);
+    }
+
     @Override
     public void addMessage(JSONObject msg) {
         long t = Instant.now().toEpochMilli();
