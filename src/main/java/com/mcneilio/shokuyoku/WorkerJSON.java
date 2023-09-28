@@ -1,15 +1,12 @@
 package com.mcneilio.shokuyoku;
 
-import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.S3StorageDriver;
 import com.mcneilio.shokuyoku.driver.StorageDriver;
-import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
-
 import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
-import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -25,44 +22,28 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Properties;
 
-public class Worker implements IWorker {
+public class WorkerJSON implements IWorker {
 
-    public Worker() {
+    public WorkerJSON() {
 
         verifyEnvironment();
         System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
-
-        String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC") != null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
-
-        this.descriptionProvider = new HiveDescriptionProvider();
-        this.databaseName = System.getenv("HIVE_DATABASE");
-        this.consumer = new KafkaConsumer<>(createConsumerProps());
-        this.consumer.subscribe(Arrays.asList(kafkaTopic));
-        this.littleEndian = System.getenv("ENDIAN") != null && System.getenv("ENDIAN").equals("little");
-
-        statsd = Statsd.getInstance();
-    }
-
-    private Properties createConsumerProps() {
         Properties props = new Properties();
         props.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv("KAFKA_SERVERS"));
         props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, System.getenv("KAFKA_GROUP_ID"));
         props.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         props.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+        props.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
 
-        if (System.getenv("KAFKA_CLIENT_RACK") != null) {
-            props.setProperty(ConsumerConfig.CLIENT_RACK_CONFIG, System.getenv("KAFKA_CLIENT_RACK"));
-        }
-        if (System.getenv("KAFKA_FETCH_MIN_BYTES") != null) {
-            props.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("KAFKA_FETCH_MIN_BYTES"));
-        }
-        if (System.getenv("KAFKA_SECURITY_PROTOCOL") != null) {
-            props.setProperty(KAFKA_SECURITY_PROTOCOL, System.getenv("KAFKA_SECURITY_PROTOCOL"));
-        }
+        String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC")!=null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
 
-        return props;
+        this.descriptionProvider = new HiveDescriptionProvider();
+        this.databaseName = System.getenv("HIVE_DATABASE");
+        this.consumer = new KafkaConsumer<>(props);
+        this.consumer.subscribe(Arrays.asList(kafkaTopic));
+
+        statsd = Statsd.getInstance();
     }
 
 
@@ -91,18 +72,17 @@ public class Worker implements IWorker {
         }
 
         while (running) {
-            ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
+            ConsumerRecords<String,String> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
-            for (ConsumerRecord<String,byte[]> record : records) {
+            for (ConsumerRecord<String,String> record : records) {
                 if(this.iterationTime == 0 && !records.isEmpty()) {
                     this.iterationTime = System.currentTimeMillis();
                 }
-                Firehose f = new Firehose(record.value(), littleEndian);
-                String eventName = f.getTopic();
-                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, hoistFields);
+                JSONObject msg = new JSONColumnFormat(new JSONObject(record.value())).getCopy(null, true, hoistFields);
                 if (!msg.has("timestamp") || !msg.has("event")) {
                     continue;
                 }
+                String eventName = msg.getString("event");
                 String date = msg.getString("timestamp").split("T")[0];
                 if (!drivers.containsKey(eventName+date)) {
                     System.out.println("Creating driver for event: " + eventName + " with date: " + date);
@@ -127,8 +107,7 @@ public class Worker implements IWorker {
                     try {
                         eventDriver.addMessage(msg);
                     }catch(Exception ex){
-                        System.err.println("Error handling event: "+f.getTopic());
-                        System.err.println(f.getMessage());
+                        System.err.println("Error handling record; " + record.value());
                         throw ex;
                     }
                 }
@@ -210,11 +189,8 @@ public class Worker implements IWorker {
         }
     }
 
-    private static final String KAFKA_SECURITY_PROTOCOL = "security.protocol";
-
-    private final boolean littleEndian;
     String databaseName;
-    KafkaConsumer<String,byte[]> consumer;
+    KafkaConsumer<String,String> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
     StatsDClient statsd;
