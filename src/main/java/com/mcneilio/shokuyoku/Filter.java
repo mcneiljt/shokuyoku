@@ -200,6 +200,9 @@ public class Filter {
         if (System.getenv("KAFKA_ACKS") != null) {
             producerProps.setProperty(ProducerConfig.ACKS_CONFIG, System.getenv("KAFKA_ACKS"));
         }
+        if (System.getenv("KAFKA_SECURITY_PROTOCOL") != null) {
+            producerProps.setProperty(KAFKA_SECURITY_PROTOCOL, System.getenv("KAFKA_SECURITY_PROTOCOL"));
+        }
         return producerProps;
     }
 
@@ -218,8 +221,12 @@ public class Filter {
         if (System.getenv("KAFKA_FETCH_MIN_BYTES") != null) {
             consumerProps.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("KAFKA_FETCH_MIN_BYTES"));
         }
+        if (System.getenv("KAFKA_SECURITY_PROTOCOL") != null) {
+            consumerProps.setProperty(KAFKA_SECURITY_PROTOCOL, System.getenv("KAFKA_SECURITY_PROTOCOL"));
+        }
         return consumerProps;
     }
 
     static StatsDClient statsd;
+    private static final String KAFKA_SECURITY_PROTOCOL = "security.protocol";
 }

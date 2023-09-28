@@ -65,6 +65,7 @@ AWS_ACCESS_KEY_ID environment variable should be set https://docs.aws.amazon.com
 AWS_SECRET_ACCESS_KEY environment variable should be set https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
 S3_BUCKET environment variable should contain the bucket to write events to. e.g. my-event-bucket
 ORC_BATCH_SIZE environment variable should contain the number of records per orc batch. e.g. 1024
+KAFKA_SECURITY_PROTOCOL environment variable should be one of PLAINTEXT or SSL
 ```
 
 ## Development
