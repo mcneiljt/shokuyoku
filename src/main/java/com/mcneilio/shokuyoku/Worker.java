@@ -58,6 +58,9 @@ public class Worker {
         if (System.getenv("KAFKA_FETCH_MIN_BYTES") != null) {
             props.setProperty(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, System.getenv("KAFKA_FETCH_MIN_BYTES"));
         }
+        if (System.getenv("KAFKA_SECURITY_PROTOCOL") != null) {
+            props.setProperty(KAFKA_SECURITY_PROTOCOL, System.getenv("KAFKA_SECURITY_PROTOCOL"));
+        }
 
         return props;
     }
@@ -206,6 +209,8 @@ public class Worker {
             System.exit(1);
         }
     }
+
+    private static final String KAFKA_SECURITY_PROTOCOL = "security.protocol";
 
     private final boolean littleEndian;
     String databaseName;
