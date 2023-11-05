@@ -69,6 +69,7 @@ public class Filter {
         boolean checkSimilar = "true".equals(System.getenv("CHECK_SIMILAR"));
         boolean ignoreNulls = "true".equals(System.getenv("IGNORE_NULLS"));
         boolean allowInvalidCoercions = "true".equals(System.getenv("ALLOW_INVALID_COERCIONS"));
+        boolean enableFilterError = "true".equals(System.getenv("ENABLE_FILTER_ERROR"));
 
         statsd = Statsd.getInstance();
 
@@ -145,7 +146,9 @@ public class Filter {
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
 
                 if (eventTypeJSONSchema == null) {
-                    producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                    if (enableFilterError) {
+                        producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                    }
                     statsd.increment("filter.skipped", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                     continue;
                 }
@@ -155,7 +158,9 @@ public class Filter {
 
                 if (filter.getFilterCount() > 0) {
                     statsd.histogram("filter.error", filter.getFilterCount(), new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
-                    producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                    if (enableFilterError) {
+                        producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
+                    }
                 }
 
                 if (checkSimilar) {
