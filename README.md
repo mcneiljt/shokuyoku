@@ -66,6 +66,7 @@ AWS_SECRET_ACCESS_KEY environment variable should be set https://docs.aws.amazon
 S3_BUCKET environment variable should contain the bucket to write events to. e.g. my-event-bucket
 ORC_BATCH_SIZE environment variable should contain the number of records per orc batch. e.g. 1024
 KAFKA_SECURITY_PROTOCOL environment variable should be one of PLAINTEXT or SSL
+ENABLE_FILTER_ERROR environment variable to enabling sending filtered events to an error topic.a (boolean)
 ```
 
 ## Development
