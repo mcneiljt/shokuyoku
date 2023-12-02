@@ -39,10 +39,6 @@ public class Filter {
             System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
         }
-        if(System.getenv("KAFKA_ERROR_TOPIC") == null) {
-            System.out.println("KAFKA_ERROR_TOPIC environment variable should contain the topic to send errors to to. e.g. events");
-            missingEnv = true;
-        }
         if(System.getenv("KAFKA_OUTPUT_TOPIC") == null) {
             System.out.println("KAFKA_OUTPUT_TOPIC environment variable should contain the topic to publish to. e.g. events");
             missingEnv = true;
