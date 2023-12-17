@@ -1,5 +1,6 @@
 package com.mcneilio.shokuyoku.driver;
 
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -12,10 +13,9 @@ import java.nio.file.Paths;
  */
 public class S3StorageDriver implements StorageDriver{
 
-
     public S3StorageDriver(String s3Bucket, String prefix) {
-        this.s3Bucket=s3Bucket;
-        this.prefix = prefix.endsWith("/") ? prefix : prefix+"/";
+        this.s3Bucket = s3Bucket;
+        this.prefix = prefix.endsWith("/") ? prefix : prefix + "/";
     }
 
     @Override
@@ -25,7 +25,14 @@ public class S3StorageDriver implements StorageDriver{
             .key(prefix + eventName + "/date=" + date + "/" + fileName)
             .build();
 
-        s3.putObject(putOb, Paths.get(fileName));
+        if (System.getenv("DRY_RUN") == null) {
+            try {
+                s3.putObject(putOb, Paths.get(fileName));
+            } catch (SdkClientException e) {
+                throw new RuntimeException("Error putting object in S3: ", e);
+            }
+        }
+//        statsd.count("file.count", ) add a metric for number of files pushed to S3
     }
     String s3Bucket;
     String prefix;

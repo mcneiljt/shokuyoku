@@ -2,7 +2,6 @@ package com.mcneilio.shokuyoku;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
-import java.util.Locale;
 
 /**
  * Entrypoint to the shokuyoku daemon
