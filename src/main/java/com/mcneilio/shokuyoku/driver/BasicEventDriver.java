@@ -24,7 +24,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 /**
  * BasicEventDriver takes raw JSONObjects and adds them to an ORC file. On an interval or if a certain size
@@ -56,15 +55,15 @@ public class BasicEventDriver implements EventDriver {
         long t = Instant.now().toEpochMilli();
         int batchPosition = batch.size++;
 
-        for(int colId =0;colId<colNames.length;colId++){
-            String key=colNames[colId];
+        for (int colId = 0; colId < colNames.length; colId++){
+            String key = colNames[colId];
 
             if(!msg2.has(key)) {
                 continue;
             }
             Object value = msg2.get(key);
 
-            if(orcers[colId]!=null){
+            if (orcers[colId] != null){
                 orcers[colId].addObject(columnVectors[colId], batchPosition, value);
             }
 //                if(columns.get(key) instanceof BytesColumnVector && msg.get(key) instanceof java.lang.String) {
@@ -126,12 +125,15 @@ public class BasicEventDriver implements EventDriver {
 //
 //            }
         }
+
         ((LongColumnVector) columns.get("date")).vector[batchPosition] = LocalDate.parse(date).toEpochDay();
         columns.get("date").isNull[batchPosition] = false;
         statsd.count("message.count", 1, new String[]{"env:"+System.getenv("STATSD_ENV")});
+
         if (batch.size == batch.getMaxSize()) {
             write();
         }
+
         statsd.histogram("eventDriver.addMessage.ms", Instant.now().toEpochMilli() - t,
             new String[] {"env:"+System.getenv("STATSD_ENV")});
     }
@@ -217,20 +219,20 @@ public class BasicEventDriver implements EventDriver {
     }
 
 
-    private byte[] bytesForObject(Object obj){
-        if(obj instanceof String) {
+    private byte[] bytesForObject(Object obj) {
+        if (obj instanceof String) {
             return ((String)obj).getBytes();
-        }else if(obj instanceof Integer) {
+        } else if (obj instanceof Integer) {
             return ((Integer)obj).toString().getBytes();
-        }else if(obj instanceof BigDecimal) {
+        } else if (obj instanceof BigDecimal) {
             return ((BigDecimal)obj).toString().getBytes();
-        }else if(obj instanceof Long) {
+        } else if (obj instanceof Long) {
             return ((Long)obj).toString().getBytes();
-        }else if(obj instanceof Boolean) {
+        } else if (obj instanceof Boolean) {
             return ((Boolean)((Boolean) obj).booleanValue() ? "true" : "false").toString().getBytes();
-        } else if(obj instanceof JSONArray) {
+        } else if (obj instanceof JSONArray) {
             return ((JSONArray)obj).toString().getBytes();
-        }else {
+        } else {
             System.out.println("ASD");
             // TODO: Are there other possible types?
         }
@@ -243,16 +245,15 @@ public class BasicEventDriver implements EventDriver {
      */
     private void setColumns() {
         HashMap<String, ColumnVector> columns = new HashMap<>();
-       // String[] fields = schema.getFieldNames().toArray(new String[0]);
         colNames = schema.getFieldNames().toArray(new String[0]);
         columnVectors = this.batch.cols;
         orcers = new JSONToOrc[batch.numCols];
 
         for(int i = 0; i < colNames.length; i++) {
             columns.put(colNames[i], columnVectors[i]);
-
             TypeDescription typeDescription =schema.getChildren().get(i);
-            if(typeDescription.toString().equals("date")) {
+
+            if (typeDescription.toString().equals("date")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
@@ -262,7 +263,7 @@ public class BasicEventDriver implements EventDriver {
                             try {
                                 longColumnVector.vector[idx] = LocalDate.parse((String) obj).toEpochDay();
                                 longColumnVector.isNull[idx] = false;
-                            }catch (DateTimeParseException ex) {
+                            } catch (DateTimeParseException ex) {
                                 longColumnVector.isNull[idx] = true;
                             }
                         } else {
@@ -270,60 +271,63 @@ public class BasicEventDriver implements EventDriver {
                         }
                     }
                 };
-            } else if(typeDescription.toString().equals("string")) {
+            } else if (typeDescription.toString().equals("string")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         BytesColumnVector bytesColumnVector = (BytesColumnVector) columnVector;
-                        byte[] bytes= bytesForObject(obj);//null;
 
-                        bytesColumnVector.setRef(idx, bytes, 0,bytes.length);
-                        bytesColumnVector.isNull[idx]=false;
+                        byte[] bytes = bytesForObject(obj); //null;
+                        if (bytes != null) {
+                            bytesColumnVector.setRef(idx, bytes, 0, bytes.length);
+                            bytesColumnVector.isNull[idx] = false;
+                        } else {
+                            bytesColumnVector.isNull[idx] = true;
+                        }
                     }
                 };
-            }else if(typeDescription.toString().equals("boolean")) {
+            } else if (typeDescription.toString().equals("boolean")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
-                        byte[] bytes= null;
+
                         if(obj instanceof Boolean) {
-                            if(((Boolean) obj).booleanValue()){
+                            if (((Boolean) obj).booleanValue()){
                                 longColumnVector.vector[idx] = 1;
-                                longColumnVector.isNull[idx] = false;
-                            }else {
+                            } else {
                                 longColumnVector.vector[idx] = 0;
-                                longColumnVector.isNull[idx] = false;
                             }
-                        }else{
+                            longColumnVector.isNull[idx] = false;
+                        } else{
                             longColumnVector.isNull[idx]=true;
                         }
                     }
                 };
-            } else if( typeDescription.toString().equals("smallint")) {
+            } else if (typeDescription.toString().equals("smallint")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
-                        byte[] bytes= null;
-                        if(obj instanceof Integer) {
+
+                        if (obj instanceof Integer) {
                             longColumnVector.vector[idx] = ((Integer)obj).shortValue();
                             longColumnVector.isNull[idx] = false;
-                        }else if(obj instanceof Long) {
+                        } else if (obj instanceof Long) {
                             longColumnVector.vector[idx] = ((Long)obj).shortValue();
                             longColumnVector.isNull[idx] = false;
-                        }else{
+                        } else{
                             longColumnVector.isNull[idx]=true;
                         }
                     }
                 };
             }
-            else if(typeDescription.toString().equals("tinyint") ) {
+            else if (typeDescription.toString().equals("tinyint") ) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
-                        byte[] bytes= null;
+
                         if(obj instanceof Integer) {
                             longColumnVector.vector[idx] = (Integer)obj;
                             longColumnVector.isNull[idx] = false;
@@ -339,12 +343,12 @@ public class BasicEventDriver implements EventDriver {
                     }
                 };
             }
-            else if(typeDescription.toString().equals("int")) {
+            else if (typeDescription.toString().equals("int")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
-                        byte[] bytes= null;
+
                         if(obj instanceof Integer) {
                             longColumnVector.vector[idx] = (Integer)obj;
                             longColumnVector.isNull[idx] = false;
@@ -359,20 +363,20 @@ public class BasicEventDriver implements EventDriver {
                         }
                     }
                 };
-            } else if( typeDescription.toString().equals("bigint")) {
+            } else if (typeDescription.toString().equals("bigint")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         LongColumnVector longColumnVector = (LongColumnVector) columnVector;
-                        byte[] bytes= null;
+
                         if(obj instanceof Integer) {
-                            longColumnVector.vector[idx] = (Integer)obj;
+                            longColumnVector.vector[idx] = (Integer) obj;
                             longColumnVector.isNull[idx] = false;
                         } else if(obj instanceof BigDecimal) {
-                            longColumnVector.vector[idx] = ((BigDecimal)obj).longValue();
+                            longColumnVector.vector[idx] = ((BigDecimal) obj).longValue();
                             longColumnVector.isNull[idx] = false;
                         } else if(obj instanceof Long) {
-                            longColumnVector.vector[idx] = ((Long)obj).longValue();
+                            longColumnVector.vector[idx] = ((Long) obj).longValue();
                             longColumnVector.isNull[idx] = false;
                         }else{
                             longColumnVector.isNull[idx]=true;
@@ -385,22 +389,20 @@ public class BasicEventDriver implements EventDriver {
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         DecimalColumnVector decimalColumnVector = (DecimalColumnVector) columnVector;
 
-
-//                        byte[] bytes= null;
                         if(obj instanceof Integer) {
-                            decimalColumnVector.vector[idx]= new HiveDecimalWritable(HiveDecimal.create((Integer)obj));
-                            decimalColumnVector.isNull[idx]=false;
+                            decimalColumnVector.vector[idx] = new HiveDecimalWritable(HiveDecimal.create((Integer)obj));
+                            decimalColumnVector.isNull[idx] = false;
 
                         } else if(obj instanceof BigDecimal) {
-                            decimalColumnVector.vector[idx]= new HiveDecimalWritable(HiveDecimal.create((BigDecimal)obj));
-                            decimalColumnVector.isNull[idx]=false;
+                            decimalColumnVector.vector[idx] = new HiveDecimalWritable(HiveDecimal.create((BigDecimal)obj));
+                            decimalColumnVector.isNull[idx] = false;
 
                         } else if(obj instanceof Long) {
                             decimalColumnVector.vector[idx]= new HiveDecimalWritable(HiveDecimal.create((Long)obj));
-                            decimalColumnVector.isNull[idx]=false;
+                            decimalColumnVector.isNull[idx] = false;
 
                         } else{
-                            decimalColumnVector.isNull[idx]=true;
+                            decimalColumnVector.isNull[idx] = true;
                         }
                     }
                 };
@@ -409,20 +411,20 @@ public class BasicEventDriver implements EventDriver {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         DoubleColumnVector doubleColumnVector = (DoubleColumnVector) columnVector;
-                        byte[] bytes= null;
-                        if(obj instanceof Integer) {
-                            doubleColumnVector.vector[idx]=(Integer)obj;
-                            doubleColumnVector.isNull[idx]=false;
+
+                        if (obj instanceof Integer) {
+                            doubleColumnVector.vector[idx] = (Integer) obj;
+                            doubleColumnVector.isNull[idx] = false;
 
                         } else if(obj instanceof Long) {
-                            doubleColumnVector.vector[idx]=(Long)obj;
-                            doubleColumnVector.isNull[idx]=false;
+                            doubleColumnVector.vector[idx] = (Long) obj;
+                            doubleColumnVector.isNull[idx] = false;
 
                         } else if(obj instanceof BigDecimal) {
-                            doubleColumnVector.vector[idx]=((BigDecimal)obj).doubleValue();
-                            doubleColumnVector.isNull[idx]=false;
+                            doubleColumnVector.vector[idx] = ((BigDecimal) obj).doubleValue();
+                            doubleColumnVector.isNull[idx] = false;
                         } else{
-                            doubleColumnVector.isNull[idx]=true;
+                            doubleColumnVector.isNull[idx] = true;
                         }
                     }
                 };
@@ -431,7 +433,7 @@ public class BasicEventDriver implements EventDriver {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         BytesColumnVector bytesColumnVector = (BytesColumnVector) columnVector;
-                        bytesColumnVector.isNull[idx]=true;
+                        bytesColumnVector.isNull[idx] = true;
                     }
                 };
             }  else if(typeDescription.toString().equals("timestamp")) {
@@ -441,9 +443,9 @@ public class BasicEventDriver implements EventDriver {
                         TimestampColumnVector timestampColumnVector = (TimestampColumnVector) columnVector;
                         if(obj instanceof Long) {
                             timestampColumnVector.time[idx] = (Long)obj;
-                            timestampColumnVector.isNull[idx]=false;
+                            timestampColumnVector.isNull[idx] = false;
                         }else{
-                            timestampColumnVector.isNull[idx]=true;
+                            timestampColumnVector.isNull[idx] = true;
 
                         }
                     }
@@ -454,18 +456,18 @@ public class BasicEventDriver implements EventDriver {
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         ListColumnVector booleanListColumnVector = (ListColumnVector) columnVector;
 
-                        if(obj instanceof String || obj instanceof BigDecimal) {
-                           booleanListColumnVector.isNull[idx]=true;
-                        } else if(obj instanceof Boolean) {
-                            booleanListColumnVector.isNull[idx]=false;
+                        if (obj instanceof String || obj instanceof BigDecimal) {
+                           booleanListColumnVector.isNull[idx] = true;
+                        } else if (obj instanceof Boolean) {
+                            booleanListColumnVector.isNull[idx] = false;
                             int offset = booleanListColumnVector.childCount;
                             booleanListColumnVector.offsets[idx] = offset;
                             booleanListColumnVector.lengths[idx] = 1;
                             booleanListColumnVector.childCount += 1;
                             booleanListColumnVector.child.ensureSize(booleanListColumnVector.childCount, true);
                             ((LongColumnVector) booleanListColumnVector.child).vector[offset]= (Boolean)obj ? 1 : 0;
-                        } else if(obj instanceof JSONArray) {
-                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Boolean)){
+                        } else if (obj instanceof JSONArray) {
+                            if (hasCommonType((JSONArray) obj, (a) -> a instanceof Boolean)){
                                 JSONArray msgArray = (JSONArray) obj;
                                 int offset = booleanListColumnVector.childCount;
                                 booleanListColumnVector.offsets[idx] = offset;
@@ -478,19 +480,19 @@ public class BasicEventDriver implements EventDriver {
                             } else {
                                 booleanListColumnVector.isNull[idx]=true;
                             }
-                        }else if(obj instanceof Integer || obj instanceof Long) {
+                        } else if (obj instanceof Integer || obj instanceof Long) {
                             booleanListColumnVector.isNull[idx]=true;
-                        }else{
+                        } else{
                             booleanListColumnVector.isNull[idx]=true;
                         }
                     }
                 };
-            } else if(typeDescription.toString().equals("array<float>")) {
+            } else if (typeDescription.toString().equals("array<float>")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         ListColumnVector floatColumnVector = (ListColumnVector) columnVector;
-                        //byte[] bytes= null;
+
                         if(obj instanceof String || obj instanceof Boolean) {
                             //timestampColumnVector.time[idx] = (Long)obj;
                             floatColumnVector.isNull[idx]=true;
@@ -505,7 +507,7 @@ public class BasicEventDriver implements EventDriver {
                             ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=((BigDecimal)obj).doubleValue();
 
 
-                        }else if(obj instanceof Integer) {
+                        } else if (obj instanceof Integer) {
 
                             int offset = floatColumnVector.childCount;
                             floatColumnVector.isNull[idx] = false;
@@ -515,7 +517,7 @@ public class BasicEventDriver implements EventDriver {
                             ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=(Integer)obj;
 
 
-                        }else if(obj instanceof Long) {
+                        } else if (obj instanceof Long) {
 
                             int offset = floatColumnVector.childCount;
                             floatColumnVector.isNull[idx] = false;
@@ -525,31 +527,32 @@ public class BasicEventDriver implements EventDriver {
                             ((DoubleColumnVector)((ListColumnVector) columnVector).child).vector[offset]=(Long)obj;
 
 
-                        }else if(obj instanceof JSONArray) {
-                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof Float || a instanceof Integer  || a instanceof Long|| a instanceof BigDecimal)){
+                        } else if (obj instanceof JSONArray) {
+                            if (hasCommonType((JSONArray) obj, (a) -> a instanceof Float || a instanceof Integer  || a instanceof Long|| a instanceof BigDecimal)){
                                 JSONArray msgArray = (JSONArray) obj;
                                 int offset = floatColumnVector.childCount;
                                 floatColumnVector.offsets[idx] = offset;
                                 floatColumnVector.lengths[idx] = msgArray.length();
                                 floatColumnVector.childCount += msgArray.length();
                                 floatColumnVector.child.ensureSize(floatColumnVector.childCount, true);
-                                for(int i=0; i<msgArray.length(); i++) {
+                                for (int i = 0; i < msgArray.length(); i++) {
                                     ((DoubleColumnVector) floatColumnVector.child).vector[offset+i] = msgArray.getFloat(i);
                                 }
-                            }else {
-                                floatColumnVector.isNull[idx]=true;
+                            } else {
+                                floatColumnVector.isNull[idx] = true;
                             }
-                        }else{
-                            floatColumnVector.isNull[idx]=true;
+                        } else {
+                            floatColumnVector.isNull[idx] = true;
                         }
                     }
                 };
-            } else if(typeDescription.toString().equals("array<date>")) {
+            } else if (typeDescription.toString().equals("array<date>")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
                         ListColumnVector dateListColumnVector = (ListColumnVector) columnVector;
-                        if(obj instanceof String) {
+
+                        if (obj instanceof String) {
                             try {
                                 int offset = dateListColumnVector.childCount;
                                 long tmp = LocalDate.parse((String) obj).toEpochDay();
@@ -563,16 +566,16 @@ public class BasicEventDriver implements EventDriver {
 
                                 ((LongColumnVector)((ListColumnVector) columnVector).child).vector[offset]=tmp;
 
-                            }catch (DateTimeParseException ex) {
+                            } catch (DateTimeParseException ex) {
                                 dateListColumnVector.isNull[idx] = true;
                             }
 
-                        }else if(obj instanceof JSONArray) {
-                            if(hasCommonType((JSONArray) obj, (a) -> a instanceof String)){
+                        } else if (obj instanceof JSONArray) {
+                            if (hasCommonType((JSONArray) obj, (a) -> a instanceof String)){
                                 try {
                                     JSONArray msgArray = (JSONArray) obj;
                                     long[] longs = new long[msgArray.length()];
-                                    for(int i=0; i<msgArray.length(); i++) {
+                                    for (int i = 0; i < msgArray.length(); i++) {
                                         longs[i] = LocalDate.parse(msgArray.getString(i)).toEpochDay();
                                     }
                                     int offset = dateListColumnVector.childCount;
@@ -580,15 +583,15 @@ public class BasicEventDriver implements EventDriver {
                                     dateListColumnVector.lengths[idx] = msgArray.length();
                                     dateListColumnVector.childCount += msgArray.length();
                                     dateListColumnVector.child.ensureSize(dateListColumnVector.childCount, true);
-                                    for(int i=0; i<longs.length; i++) {
+                                    for (int i = 0; i < longs.length; i++) {
                                         ((LongColumnVector) dateListColumnVector.child).vector[offset+i] = longs[i];
                                     }
                                     dateListColumnVector.isNull[idx] = false;
 
-                                }catch (DateTimeParseException ex) {
+                                } catch (DateTimeParseException ex) {
                                     dateListColumnVector.isNull[idx] = true;
                                 }
-                            }else {
+                            } else {
                                 dateListColumnVector.isNull[idx]=true;
                             }
                         }else{
@@ -605,22 +608,24 @@ public class BasicEventDriver implements EventDriver {
                         if (obj instanceof JSONArray){
                             JSONArray msgArray = (JSONArray) obj;
                             byte[][] bytes = new byte[msgArray.length()][];
-                            long total=0;
-                            for(int i=0; i<msgArray.length(); i++) {
+                            long total = 0;
+
+                            for (int i = 0; i < msgArray.length(); i++) {
                                 bytes[i] = bytesForObject(msgArray.get(i));
-                                total+=bytes[i].length;
+                                total += bytes[i].length; // bytes[i] could be NULL
                             }
+
                             int offset = timestampColumnVector.childCount;
                             timestampColumnVector.lengths[idx] = msgArray.length();
                             timestampColumnVector.childCount += msgArray.length();
                             timestampColumnVector.child.ensureSize(timestampColumnVector.childCount, true);
                             for(int i=0; i<bytes.length; i++) {
-                                ((BytesColumnVector) timestampColumnVector.child).isNull[offset+i]=false;
+                                ((BytesColumnVector) timestampColumnVector.child).isNull[offset+i] = false;
                                 ((BytesColumnVector) timestampColumnVector.child).setRef(offset+i,bytes[i],0,bytes[i].length);
                             }
                             timestampColumnVector.isNull[idx] = false;
 
-                        }else  {
+                        } else {
                             byte[] bytes = bytesForObject(obj);
                                 int offset = timestampColumnVector.childCount;
 
@@ -833,7 +838,7 @@ public class BasicEventDriver implements EventDriver {
                         }
                     }
                 };
-            }  else if(typeDescription.toString().equals("array<timestamp>")) {
+            }  else if (typeDescription.toString().equals("array<timestamp>")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
@@ -934,7 +939,7 @@ public class BasicEventDriver implements EventDriver {
                         }
                     }
                 };
-            }  else if(typeDescription.toString().equals("array<bigint>")) {
+            } else if (typeDescription.toString().equals("array<bigint>")) {
                 orcers[i] = new JSONToOrc() {
                     @Override
                     public void addObject(ColumnVector columnVector, int idx, Object obj) {
@@ -998,8 +1003,8 @@ public class BasicEventDriver implements EventDriver {
                         }
                     }
                 };
-            }   else{
-                System.out.println("asd");
+            } else{
+                System.out.println("Unsupported column type: " + typeDescription.toString());
             }
         }
         this.columns = columns;
@@ -1009,7 +1014,7 @@ public class BasicEventDriver implements EventDriver {
         return fileName;
     }
 
-String[] colNames;
+    String[] colNames;
     VectorizedRowBatch batch;
     TypeDescription schema;
     HashMap<String, ColumnVector> columns;

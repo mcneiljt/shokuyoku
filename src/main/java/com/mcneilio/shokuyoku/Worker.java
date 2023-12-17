@@ -1,15 +1,14 @@
 package com.mcneilio.shokuyoku;
 
-import com.mcneilio.shokuyoku.driver.EventDriver;
+// import com.amazon.SdkClientException;
 import com.mcneilio.shokuyoku.driver.BasicEventDriver;
+import com.mcneilio.shokuyoku.driver.EventDriver;
 import com.mcneilio.shokuyoku.driver.S3StorageDriver;
 import com.mcneilio.shokuyoku.driver.StorageDriver;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
-
 import com.mcneilio.shokuyoku.util.HiveDescriptionProvider;
 import com.mcneilio.shokuyoku.util.Statsd;
-import com.mcneilio.shokuyoku.util.TypeDescriptionProvider;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -30,9 +29,9 @@ public class Worker implements IWorker {
     public Worker() {
 
         verifyEnvironment();
-        System.out.println("shokuyoku will start processing requests from topic: " + System.getenv("KAFKA_TOPIC"));
-
         String kafkaTopic = System.getenv("WORKER_KAFKA_TOPIC") != null ? System.getenv("WORKER_KAFKA_TOPIC") : System.getenv("KAFKA_TOPIC");
+
+        System.out.println("shokuyoku will start processing requests from topic: " + kafkaTopic);
 
         this.descriptionProvider = new HiveDescriptionProvider();
         this.databaseName = System.getenv("HIVE_DATABASE");
@@ -83,7 +82,7 @@ public class Worker implements IWorker {
             }
         });
 
-        HashSet<String> hoistFields = new HashSet();
+        HashSet<String> hoistFields = new HashSet<>();
         if(System.getenv("HOIST_FIELDS")!=null){
             for(String field : System.getenv("HOIST_FIELDS").split(",")) {
                 hoistFields.add(field.trim());
@@ -93,48 +92,59 @@ public class Worker implements IWorker {
         while (running) {
             ConsumerRecords<String,byte[]> records = consumer.poll(Duration.ofMillis(
                     Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS"))));
+
             for (ConsumerRecord<String,byte[]> record : records) {
-                if(this.iterationTime == 0 && !records.isEmpty()) {
-                    this.iterationTime = System.currentTimeMillis();
-                }
-                Firehose f = new Firehose(record.value(), littleEndian);
-                String eventName = f.getTopic();
-                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, hoistFields);
-                if (!msg.has("timestamp") || !msg.has("event")) {
+                if (record.value() == null) {
+                    System.err.println("Found a NULL record. Skipping...");
                     continue;
                 }
+
+                if (this.iterationTime == 0 && !records.isEmpty()) {
+                    this.iterationTime = System.currentTimeMillis();
+                }
+
+                Firehose f = new Firehose(record.value(), littleEndian);
+                String eventName = f.getTopic();
+
+                JSONObject msg = new JSONColumnFormat(new JSONObject(f.getMessage())).getCopy(null, true, hoistFields);
+                if (!msg.has("timestamp") || !msg.has("event")) {
+                    System.err.println("`timestamp` and or `event` columns missing in event: " + eventName);
+                    continue;
+                }
+
                 String date = msg.getString("timestamp").split("T")[0];
-                if (!drivers.containsKey(eventName+date)) {
-                    System.out.println("Creating driver for event: " + eventName + " with date: " + date);
+                if (!drivers.containsKey(eventName + date)) {
+                    System.out.println("Creating event driver: " + eventName + date);
 
                     TypeDescription typeDescription = null;
                     try {
                         typeDescription = this.descriptionProvider.getInstance(this.databaseName, eventName);
                     } catch (Exception e) {
                         // TODO cleanup orcs
+                        System.err.println("[WARN] Could not create new TypeDescription for event " + eventName + ". Table is likely missing in Hive.");
                         throw e;
                     }
-                    if(typeDescription!=null)
-                        drivers.put(eventName+date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
+                    if(typeDescription != null)
+                        drivers.put(eventName + date, new BasicEventDriver(eventName, date, typeDescription, storageDriver));
                     else {
-                        drivers.put(eventName+date, null);
+                        drivers.put(eventName + date, null);
                         continue;
                     }
                 }
 
-                EventDriver eventDriver = drivers.get(eventName+date);
-                if (eventDriver!=null) {
+                EventDriver eventDriver = drivers.get(eventName + date);
+                if (eventDriver != null) {
                     try {
                         eventDriver.addMessage(msg);
                     }catch(Exception ex){
-                        System.err.println("Error handling event: "+f.getTopic());
+                        System.err.println("Error handling event: " + eventName);
                         System.err.println(f.getMessage());
                         throw ex;
                     }
                 }
                 currentOffset = record.offset();
             }
-            if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES"))*1000*60)) {
+            if((System.currentTimeMillis() - iterationTime) > (Integer.parseInt(System.getenv("FLUSH_MINUTES")) * 1000 * 60)) {
                 flushDrivers();
 
                 this.iterationTime = System.currentTimeMillis();
@@ -144,14 +154,19 @@ public class Worker implements IWorker {
 
         // Flush before exiting
         flushDrivers();
+        consumer.close();
         System.out.println("Events and kafka offset flushed. Exiting....");
     }
 
     private void flushDrivers() {
         drivers.forEach((s, eventDriver) -> {
-            if (eventDriver!=null) {
+            if (eventDriver != null) {
                 System.out.println("Flushing Event Driver for: " + s);
-                eventDriver.flush(true);
+                try {
+                    eventDriver.flush(true);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
         drivers.clear();
@@ -213,7 +228,7 @@ public class Worker implements IWorker {
     private static final String KAFKA_SECURITY_PROTOCOL = "security.protocol";
 
     private final boolean littleEndian;
-    String databaseName;
+    final String databaseName;
     KafkaConsumer<String,byte[]> consumer;
     HashMap<String, EventDriver> drivers = new HashMap<>();
     long iterationTime = 0;
