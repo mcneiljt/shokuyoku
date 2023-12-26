@@ -18,6 +18,10 @@ public class HiveConnector {
         return connector;
     }
 
+    public static HiveMetaStoreClient getHsmc() {
+        return client;
+    }
+
     private HiveConnector() {
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.local", "false");
@@ -133,6 +137,6 @@ public class HiveConnector {
         client.alter_table(db, tableName, tbl);
     }
 
-    private HiveMetaStoreClient client;
+    private static HiveMetaStoreClient client;
     private Gson gson;
 }
