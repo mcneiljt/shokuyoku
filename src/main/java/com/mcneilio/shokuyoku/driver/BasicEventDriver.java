@@ -1,6 +1,6 @@
 package com.mcneilio.shokuyoku.driver;
 
-
+import com.mcneilio.shokuyoku.util.PartitionManager;
 import com.mcneilio.shokuyoku.util.Statsd;
 import com.timgroup.statsd.StatsDClient;
 import org.apache.hadoop.conf.Configuration;
@@ -154,7 +154,12 @@ public class BasicEventDriver implements EventDriver {
                 if (storageDriver != null){
                     storageDriver.addFile(date,  eventName, fileName, Paths.get(fileName));
                 }
-                //TODO: create hive partition
+
+                String s3_prefix = System.getenv("S3_PREFIX");
+                String prefix = s3_prefix.endsWith("/") ? s3_prefix : s3_prefix + "/";
+                String tablePath = "s3a://" + System.getenv("S3_BUCKET") + "/" + prefix + System.getenv("HIVE_DATABASE");
+                PartitionManager.createPartitionIfNeeded(tablePath, eventName, date);
+
                 if(deleteFile)
                     new File(fileName).delete();
                 this.fileName = null;
