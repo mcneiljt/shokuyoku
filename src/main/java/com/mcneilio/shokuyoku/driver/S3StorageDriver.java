@@ -1,5 +1,7 @@
 package com.mcneilio.shokuyoku.driver;
 
+import com.mcneilio.shokuyoku.util.Statsd;
+import com.timgroup.statsd.StatsDClient;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -16,6 +18,7 @@ public class S3StorageDriver implements StorageDriver{
     public S3StorageDriver(String s3Bucket, String prefix) {
         this.s3Bucket = s3Bucket;
         this.prefix = prefix.endsWith("/") ? prefix : prefix + "/";
+        this.statsd = Statsd.getInstance();
     }
 
     @Override
@@ -32,10 +35,11 @@ public class S3StorageDriver implements StorageDriver{
                 throw new RuntimeException("Error putting object in S3: ", e);
             }
         }
-//        statsd.count("file.count", ) add a metric for number of files pushed to S3
+        statsd.increment("s3StorageDriver.files.uploaded", 1, new String[]{"env:" + System.getenv("STATSD_ENV")});
     }
     String s3Bucket;
     String prefix;
+    StatsDClient statsd;
     final S3Client s3 = S3Client.builder()
         .region(Region.of(System.getenv("AWS_DEFAULT_REGION") !=null ? System.getenv("AWS_DEFAULT_REGION") : "us-west-2"))
         .build();
