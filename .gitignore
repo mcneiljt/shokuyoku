@@ -54,3 +54,7 @@ buildNumber.properties
 *.iml
 **/settings.xml
 dependency-reduced-pom.xml
+
+# ORC files from tests
+*.orc
+*.orc.crc
