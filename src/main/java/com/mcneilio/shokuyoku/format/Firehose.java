@@ -81,7 +81,7 @@ public class Firehose {
         this.topic = StringNormalizer.normalizeTopic(fullTopic);
 
         this.message = new String(Arrays.copyOfRange(byteArray, 7 +
-                topicLength, 7+topicLength+msgLength));
+                topicLength, byteArray.length));
     }
 
     public byte[] getByteArray() {
