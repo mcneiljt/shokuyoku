@@ -68,7 +68,7 @@ public class FirehoseTest {
         environmentVariables.set("ENDIAN", "little");
         environmentVariables.setup();
         Firehose firehoseMessage = new Firehose(testTopic, testMessage.toString());
-        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray(), false);
+        Firehose decodedMessage = new Firehose(firehoseMessage.getByteArray(), true);
 
         assertThat(decodedMessage.getTopic()).isEqualTo("test_topic");
     }
