@@ -2,7 +2,6 @@ package com.mcneilio.shokuyoku;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
-import java.util.Locale;
 
 /**
  * Entrypoint to the shokuyoku daemon
@@ -18,6 +17,7 @@ public class App {
                 "To begin listening for events pass the 'service' argument.",
                 "To begin processing data pass the 'worker' argument."
             ));
+            System.exit(1);
         }
 
         if (args[0].equals("service") || args[0].equals("standalone")) {
@@ -27,7 +27,7 @@ public class App {
 
         if (args[0].equals("worker") || args[0].equals("standalone")) {
             IWorker worker;
-            if(System.getenv("WORKER_VERSION").equalsIgnoreCase("json")) {
+            if(System.getenv("WORKER_VERSION") != null && System.getenv("WORKER_VERSION").equalsIgnoreCase("json")) {
                 worker = new WorkerJSON();
             } else {
                 worker = new Worker();
