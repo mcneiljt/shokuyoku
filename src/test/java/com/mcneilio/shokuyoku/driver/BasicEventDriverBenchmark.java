@@ -12,7 +12,7 @@ import java.util.Map;
 public class BasicEventDriverBenchmark {
 
     @Test
-    public void originalTest() throws IOException {
+    public void originalTest() throws Exception {
         String basePath = Files.createTempDirectory("tmpDirPrefix").toFile().getAbsolutePath();
         LocalStorageDriver localStorageDriver = new LocalStorageDriver(basePath);
 
