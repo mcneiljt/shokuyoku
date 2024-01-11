@@ -118,7 +118,7 @@ public class JSONSchemaDictionary {
         }
     }
 
-    protected Map<String, EventTypeJSONSchema> eventTypes = new HashMap<>();
+    final protected Map<String, EventTypeJSONSchema> eventTypes = new HashMap<>();
 
     public EventTypeJSONSchema getEventJSONSchema(String eventName){
         return eventTypes.get(eventName);
