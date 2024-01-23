@@ -29,7 +29,9 @@ public class OrcJSONSchemaDictionaryCache {
             String sslEnabled = System.getenv("REDIS_SSL_ENABLED");
             String port = System.getenv("REDIS_PORT");
 
-            jedis = new JedisPooled(host, Integer.parseInt(port), Boolean.parseBoolean(sslEnabled));
+            jedis = (Boolean.parseBoolean(sslEnabled)) ?
+                    new JedisPooled(host, Integer.parseInt(port), true) :
+                    new JedisPooled(host, Integer.parseInt(port), false);
         } catch (Exception ex) {
             System.out.println("Error instantiating and connecting to the REDIS cache: " + ex);
             ex.printStackTrace();
@@ -102,6 +104,11 @@ public class OrcJSONSchemaDictionaryCache {
             }
 
             System.out.println("Executors completed");
+
+            if (System.getenv("VALIDATE_CACHE") != null && System.getenv("VALIDATE_CACHE").equalsIgnoreCase("true")){
+                for (String eventName : getEventNameList())
+                    System.out.println(eventName + ": " + jedis.get(eventName));
+            }
         }
         catch(Exception ex){
             System.err.println("ex");
