@@ -2,7 +2,8 @@ package com.mcneilio.shokuyoku;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
-import java.util.Locale;
+import com.mcneilio.shokuyoku.util.OrcJSONSchemaDictionaryCache;
+
 
 /**
  * Entrypoint to the shokuyoku daemon
@@ -18,6 +19,14 @@ public class App {
                 "To begin listening for events pass the 'service' argument.",
                 "To begin processing data pass the 'worker' argument."
             ));
+        }
+
+        if (args[0].equals("init_cache")) {
+            System.out.println("Initialize and populate redis cache");
+            OrcJSONSchemaDictionaryCache orcJSONSchemaDictionaryCache = new OrcJSONSchemaDictionaryCache();
+            orcJSONSchemaDictionaryCache.populateCache();
+
+            return;
         }
 
         if (args[0].equals("service") || args[0].equals("standalone")) {

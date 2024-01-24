@@ -170,6 +170,11 @@
       <artifactId>guava</artifactId>
       <version>31.1-jre</version>
     </dependency>
+    <dependency>
+      <groupId>redis.clients</groupId>
+      <artifactId>jedis</artifactId>
+      <version>5.0.2</version>
+    </dependency>
   </dependencies>
 
   <build>
