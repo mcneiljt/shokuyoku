@@ -125,6 +125,7 @@ public class FilterEventByColumnValue {
         return true;
     }
 
+    // This method is used to get the nested value of a column from the event json without having to flatten the whole event json
     private String getColumnValue(JSONObject event, String column) {
         String[] columns = column.split("\\.");
 
