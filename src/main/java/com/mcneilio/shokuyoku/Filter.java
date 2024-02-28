@@ -3,7 +3,6 @@ package com.mcneilio.shokuyoku;
 import com.mcneilio.shokuyoku.filter.FilterEventByColumnValue;
 import com.mcneilio.shokuyoku.format.Firehose;
 import com.mcneilio.shokuyoku.format.JSONColumnFormat;
-import com.mcneilio.shokuyoku.model.EventType;
 import com.mcneilio.shokuyoku.model.EventTypeColumnModifier;
 import com.mcneilio.shokuyoku.util.*;
 import com.timgroup.statsd.StatsDClient;
@@ -36,7 +35,7 @@ public class Filter {
             missingEnv = true;
         }
         if(System.getenv("KAFKA_INPUT_TOPIC") == null) {
-            System.out.println("KAFKA_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
+            System.out.println("KAFKA_INPUT_TOPIC environment variable should contain the topic to subscribe to. e.g. events");
             missingEnv = true;
         }
         if(System.getenv("KAFKA_OUTPUT_TOPIC") == null) {
@@ -111,8 +110,19 @@ public class Filter {
         OrcJSONSchemaDictionary orcJSONSchemaDictionary = new OrcJSONSchemaDictionary(System.getenv("HIVE_URL"), System.getenv("HIVE_DATABASE"), ignoreNulls, allowInvalidCoercions, schemaOverrides, eventTypeColumnModifierList);
 
         FilterEventByColumnValue filterEventByColumnValue = null;
-        if (System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
-            filterEventByColumnValue = new FilterEventByColumnValue();
+
+        boolean isEventColumnContainsFilterEnabled = System.getenv().get("EVENT_COLUMN_CONTAINS_FILTER_ENABLED") != null &&
+            System.getenv().get("EVENT_COLUMN_CONTAINS_FILTER_ENABLED").equalsIgnoreCase("TRUE");
+
+        boolean isEventColumnExcludesFilterEnabled = System.getenv().get("EVENT_COLUMN_EXCLUDES_FILTER_ENABLED") != null &&
+            System.getenv().get("EVENT_COLUMN_EXCLUDES_FILTER_ENABLED").equalsIgnoreCase("TRUE");
+
+        System.out.println("Event Column Contains Filter Enabled: " + isEventColumnContainsFilterEnabled);
+        System.out.println("Event Column Excludes Filter Enabled: " + isEventColumnExcludesFilterEnabled);
+
+        if ((isEventColumnContainsFilterEnabled || isEventColumnExcludesFilterEnabled) &&
+            System.getenv().containsKey("EVENT_COLUMN_VALUE_FILTER")) {
+            filterEventByColumnValue = new FilterEventByColumnValue(isEventColumnContainsFilterEnabled, isEventColumnExcludesFilterEnabled);
         }
 
         long pollMS = System.getenv("KAFKA_POLL_DURATION_MS")!=null ? Integer.parseInt(System.getenv("KAFKA_POLL_DURATION_MS")) : 1000;
@@ -141,9 +151,8 @@ public class Filter {
                 JSONSchemaDictionary.EventTypeJSONSchema eventTypeJSONSchema = orcJSONSchemaDictionary.getEventJSONSchema(eventName);
 
                 if (eventTypeJSONSchema == null) {
-                    if (System.getenv("KAFKA_ERROR_TOPIC") != null) {
+                    if (System.getenv().get("KAFKA_ERROR_TOPIC") != null)
                         producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
-                    }
                     statsd.increment("filter.skipped", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                     continue;
                 }
@@ -153,9 +162,8 @@ public class Filter {
 
                 if (filter.getFilterCount() > 0) {
                     statsd.histogram("filter.error", filter.getFilterCount(), new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
-                    if (System.getenv("KAFKA_ERROR_TOPIC") != null) {
+                    if (System.getenv().get("KAFKA_ERROR_TOPIC") != null)
                         producer.send(new ProducerRecord<>(System.getenv("KAFKA_ERROR_TOPIC"), record.value()));
-                    }
                 }
 
                 if (checkSimilar) {
@@ -165,7 +173,6 @@ public class Filter {
                         statsd.increment("filter.similar", 1, new String[]{"env:" + System.getenv("STATSD_ENV"), "similar:false", "topic:" + eventName});
                     }
                 }
-
 
                 if (filterEventByColumnValue == null) {
                     producer.send(new ProducerRecord<>(System.getenv("KAFKA_OUTPUT_TOPIC"), firehoseMessage.getByteArray()));
@@ -178,7 +185,6 @@ public class Filter {
                 else {
                     statsd.increment("filter.blocked_event", 1, new String[]{"env:"+System.getenv("STATSD_ENV"),"topic:"+eventName});
                 }
-
             }
 
             consumer.commitSync();
